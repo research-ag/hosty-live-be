@@ -1,74 +1,14 @@
 {
   "info": {
-    "name": "Bolt Hackathon API - IC Hosting Service",
-    "description": "Complete API collection for Internet Computer deployment service with Supabase backend. Includes authentication, profile management, and full canister lifecycle management.",
+    "_postman_id": "ca2c1b1d-9e13-4855-8f43-86ccbcb25d56",
+    "name": "Internet Computer Web Hosting Platform API",
+    "description": "Complete API collection for IC deployment service with Supabase backend. Includes authentication, profile management, canister lifecycle, and deployment with file uploads.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "2.1.0"
+    "_exporter_id": "40550451"
   },
-  "auth": {
-    "type": "bearer",
-    "bearer": [
-      {
-        "key": "token",
-        "value": "{{jwt_token}}",
-        "type": "string"
-      }
-    ]
-  },
-  "variable": [
-    {
-      "key": "base_url",
-      "value": "http://127.0.0.1:54321",
-      "type": "string",
-      "description": "Local Supabase instance URL"
-    },
-    {
-      "key": "supabase_url", 
-      "value": "http://127.0.0.1:54321",
-      "type": "string",
-      "description": "Supabase API URL"
-    },
-    {
-      "key": "anon_key",
-      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0",
-      "type": "string",
-      "description": "Supabase anonymous key"
-    },
-    {
-      "key": "jwt_token",
-      "value": "",
-      "type": "string",
-      "description": "JWT token from authentication"
-    },
-    {
-      "key": "user_email",
-      "value": "test@example.com", 
-      "type": "string",
-      "description": "Test user email"
-    },
-    {
-      "key": "user_password",
-      "value": "password123",
-      "type": "string",
-      "description": "Test user password"
-    },
-    {
-      "key": "user_id",
-      "value": "",
-      "type": "string",
-      "description": "User ID extracted from authentication"
-    },
-    {
-      "key": "canister_id",
-      "value": "",
-      "type": "string",
-      "description": "IC Canister ID for testing"
-    }
-  ],
   "item": [
     {
-      "name": "🔐 Authentication",
-      "description": "User authentication endpoints using Supabase Auth",
+      "name": "Authentication",
       "item": [
         {
           "name": "Sign Up",
@@ -81,20 +21,29 @@
               },
               {
                 "key": "apikey",
-                "value": "{{anon_key}}"
+                "value": "{{supabase_anon_key}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\",\n  \"data\": {\n    \"username\": \"testuser\"\n  }\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password123\",\n  \"data\": {\n    \"full_name\": \"John Doe\"\n  }\n}"
             },
             "url": {
               "raw": "{{supabase_url}}/auth/v1/signup",
-              "host": ["{{supabase_url}}"],
-              "path": ["auth", "v1", "signup"]
-            },
-            "description": "Create a new user account"
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "signup"
+              ]
+            }
           },
+          "response": []
+        },
+        {
+          "name": "Sign In",
           "event": [
             {
               "listen": "test",
@@ -102,90 +51,84 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "    const response = pm.response.json();",
-                  "    if (response.access_token) {",
-                  "        pm.collectionVariables.set('jwt_token', response.access_token);",
-                  "    }",
-                  "    if (response.user && response.user.id) {",
-                  "        pm.collectionVariables.set('user_id', response.user.id);",
-                  "    }",
+                  "    pm.collectionVariables.set('access_token', response.access_token);",
+                  "    console.log('Access token saved:', response.access_token);",
                   "}"
-                ]
+                ],
+                "type": "text/javascript",
+                "packages": {}
               }
             }
-          ]
-        },
-        {
-          "name": "Sign In",
+          ],
           "request": {
             "method": "POST",
             "header": [
               {
-                "key": "Content-Type", 
+                "key": "Content-Type",
                 "value": "application/json"
               },
               {
                 "key": "apikey",
-                "value": "{{anon_key}}"
+                "value": "{{supabase_anon_key}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{user_email}}\",\n  \"password\": \"{{user_password}}\"\n}"
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
               "raw": "{{supabase_url}}/auth/v1/token?grant_type=password",
-              "host": ["{{supabase_url}}"],
-              "path": ["auth", "v1", "token"],
-              "query": [{"key": "grant_type", "value": "password"}]
-            },
-            "description": "Sign in with email and password"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 200) {",
-                  "    const response = pm.response.json();",
-                  "    if (response.access_token) {",
-                  "        pm.collectionVariables.set('jwt_token', response.access_token);",
-                  "    }",
-                  "    if (response.user && response.user.id) {",
-                  "        pm.collectionVariables.set('user_id', response.user.id);",
-                  "    }",
-                  "}"
-                ]
-              }
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "token"
+              ],
+              "query": [
+                {
+                  "key": "grant_type",
+                  "value": "password"
+                }
+              ]
             }
-          ]
+          },
+          "response": []
         },
         {
-          "name": "Get User",
+          "name": "Get User Profile",
           "request": {
             "method": "GET",
             "header": [
               {
                 "key": "apikey",
-                "value": "{{anon_key}}"
+                "value": "{{supabase_anon_key}}"
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "url": {
               "raw": "{{supabase_url}}/auth/v1/user",
-              "host": ["{{supabase_url}}"],
-              "path": ["auth", "v1", "user"]
-            },
-            "description": "Get current user information"
-          }
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "auth",
+                "v1",
+                "user"
+              ]
+            }
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "User authentication endpoints using Supabase Auth"
     },
     {
-      "name": "👤 Profile Management",
-      "description": "User profile management endpoints",
+      "name": "Profile Management",
       "item": [
         {
           "name": "Get Profile",
@@ -194,48 +137,28 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/functions/v1/profile",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "profile"]
-            },
-            "description": "Get user profile information"
-          }
-        },
-        {
-          "name": "Update Profile",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              },
-              {
-                "key": "Authorization", 
-                "value": "Bearer {{jwt_token}}"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"updated_username\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/functions/v1/profile",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "profile"]
-            },
-            "description": "Update user profile information"
-          }
+              "raw": "{{supabase_url}}/functions/v1/profile",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "profile"
+              ]
+            }
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "User profile operations"
     },
     {
-      "name": "🏭 Canister Management",
-      "description": "Internet Computer canister lifecycle management - All endpoints require authentication",
+      "name": "Canister Management",
       "item": [
         {
           "name": "Create Canister",
@@ -248,37 +171,26 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{}"
+              "raw": "{\n  \"name\": \"My Web App\",\n  \"description\": \"A sample web application\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/functions/v1/canister-create",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "canister-create"]
-            },
-            "description": "Create a new IC canister with asset canister installed and default welcome page. User is identified from JWT token."
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "if (pm.response.code === 201) {",
-                  "    const response = pm.response.json();",
-                  "    if (response.success && response.data && response.data.canisterId) {",
-                  "        pm.collectionVariables.set('canister_id', response.data.canisterId);",
-                  "        console.log('Canister created:', response.data.canisterId);",
-                  "        console.log('Frontend URL:', response.data.frontendUrl);",
-                  "    }",
-                  "}"
-                ]
-              }
+              "raw": "{{supabase_url}}/functions/v1/canister-create",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "canister-create"
+              ]
             }
-          ]
+          },
+          "response": []
         },
         {
           "name": "List User Canisters",
@@ -287,16 +199,22 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/functions/v1/canisters-list",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "canisters-list"]
-            },
-            "description": "Get all canisters for the authenticated user with full IC information including cycles, WASM size, controllers, etc."
-          }
+              "raw": "{{supabase_url}}/functions/v1/canisters-list",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "canisters-list"
+              ]
+            }
+          },
+          "response": []
         },
         {
           "name": "Get Canister Details",
@@ -305,23 +223,29 @@
             "header": [
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer {{access_token}}"
               }
             ],
             "url": {
-              "raw": "{{base_url}}/functions/v1/canister-get?canisterId={{canister_id}}",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "canister-get"],
+              "raw": "{{supabase_url}}/functions/v1/canister-get?canisterId=your-canister-id",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "canister-get"
+              ],
               "query": [
                 {
                   "key": "canisterId",
-                  "value": "{{canister_id}}",
-                  "description": "IC Canister ID to get details for"
+                  "value": "your-canister-id",
+                  "description": "Replace with actual canister ID"
                 }
               ]
-            },
-            "description": "Get detailed information about a specific canister owned by the authenticated user including cycles balance, WASM binary size, module hash, and controllers"
-          }
+            }
+          },
+          "response": []
         },
         {
           "name": "Delete Canister",
@@ -329,208 +253,235 @@
             "method": "DELETE",
             "header": [
               {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/canister-delete?canisterId=your-canister-id",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "canister-delete"
+              ],
+              "query": [
+                {
+                  "key": "canisterId",
+                  "value": "your-canister-id",
+                  "description": "Replace with actual canister ID"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Internet Computer canister lifecycle management"
+    },
+    {
+      "name": "Deployment Management",
+      "item": [
+        {
+          "name": "Upload and Deploy",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "zip",
+                  "description": "ZIP file containing your web application source code",
+                  "type": "file",
+                  "src": "/Users/kushnaryoff/Development/internet-computer/icp-hosting-bot/welcome-page.zip"
+                },
+                {
+                  "key": "canisterId",
+                  "value": "bd59a6dc-0a03-42ea-b2d3-bc785d7fb21c",
+                  "description": "ID of the canister to deploy to",
+                  "type": "text"
+                },
+                {
+                  "key": "buildCommand",
+                  "value": "npm run build",
+                  "description": "Build command to execute (optional, defaults to 'npm run build')",
+                  "type": "text"
+                },
+                {
+                  "key": "outputDir",
+                  "value": "dist",
+                  "description": "Output directory after build (optional, defaults to 'dist')",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/upload-deployment",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "upload-deployment"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List Deployments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/deployments-list?canisterId=your-canister-id",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "deployments-list"
+              ],
+              "query": [
+                {
+                  "key": "canisterId",
+                  "value": "your-canister-id",
+                  "description": "Filter deployments by canister ID (optional)"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Deployment Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/deployment-get?id=f761cb5a-bc8e-408d-95d3-71ff424dbea2",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "deployment-get"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "f761cb5a-bc8e-408d-95d3-71ff424dbea2",
+                  "description": "Replace with actual deployment ID"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "Web application deployment operations with file uploads"
+    },
+    {
+      "name": "Build Service",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{build_service_url}}/health",
+              "host": [
+                "{{build_service_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trigger Build (Direct)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
                 "key": "Content-Type",
                 "value": "application/json"
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{jwt_token}}"
+                "value": "Bearer your-build-service-token"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"canisterId\": \"{{canister_id}}\"\n}"
+              "raw": "{\n  \"deploymentId\": \"test-deployment-123\",\n  \"sourceZipUrl\": \"https://example.com/source.zip\",\n  \"buildCommand\": \"npm run build\",\n  \"outputDir\": \"dist\",\n  \"webhookUrl\": \"{{supabase_url}}/functions/v1/deployment-webhook\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/functions/v1/canister-delete",
-              "host": ["{{base_url}}"],
-              "path": ["functions", "v1", "canister-delete"]
-            },
-            "description": "Soft delete a canister owned by the authenticated user (marks as deleted in database, doesn't actually destroy the IC canister)"
-          }
-        }
-      ]
-    },
-    {
-      "name": "🧪 Testing Scenarios",
-      "description": "Complete testing workflows",
-      "item": [
-        {
-          "name": "Full Workflow Test",
-          "item": [
-            {
-              "name": "1. Sign Up New User",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "apikey",
-                    "value": "{{anon_key}}"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"email\": \"workflow-test@example.com\",\n  \"password\": \"testpassword123\",\n  \"data\": {\n    \"username\": \"workflow-tester\"\n  }\n}"
-                },
-                "url": {
-                  "raw": "{{supabase_url}}/auth/v1/signup",
-                  "host": ["{{supabase_url}}"],
-                  "path": ["auth", "v1", "signup"]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "if (pm.response.code === 200) {",
-                      "    const response = pm.response.json();",
-                      "    if (response.access_token) {",
-                      "        pm.collectionVariables.set('jwt_token', response.access_token);",
-                      "    }",
-                      "    if (response.user && response.user.id) {",
-                      "        pm.collectionVariables.set('user_id', response.user.id);",
-                      "    }",
-                      "}"
-                    ]
-                  }
-                }
+              "raw": "{{build_service_url}}/build",
+              "host": [
+                "{{build_service_url}}"
+              ],
+              "path": [
+                "build"
               ]
-            },
-            {
-              "name": "2. Create First Canister",
-              "request": {
-                "method": "POST",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/functions/v1/canister-create",
-                  "host": ["{{base_url}}"],
-                  "path": ["functions", "v1", "canister-create"]
-                }
-              },
-              "event": [
-                {
-                  "listen": "test",
-                  "script": {
-                    "exec": [
-                      "if (pm.response.code === 201) {",
-                      "    const response = pm.response.json();",
-                      "    if (response.success && response.data && response.data.canisterId) {",
-                      "        pm.collectionVariables.set('canister_id', response.data.canisterId);",
-                      "    }",
-                      "}"
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "name": "3. List All Canisters",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/functions/v1/canisters-list",
-                  "host": ["{{base_url}}"],
-                  "path": ["functions", "v1", "canisters-list"]
-                }
-              }
-            },
-            {
-              "name": "4. Get Canister Details",
-              "request": {
-                "method": "GET",
-                "header": [
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "url": {
-                  "raw": "{{base_url}}/functions/v1/canister-get?canisterId={{canister_id}}",
-                  "host": ["{{base_url}}"],
-                  "path": ["functions", "v1", "canister-get"],
-                  "query": [
-                    {
-                      "key": "canisterId",
-                      "value": "{{canister_id}}"
-                    }
-                  ]
-                }
-              }
-            },
-            {
-              "name": "5. Delete Canister",
-              "request": {
-                "method": "DELETE",
-                "header": [
-                  {
-                    "key": "Content-Type",
-                    "value": "application/json"
-                  },
-                  {
-                    "key": "Authorization",
-                    "value": "Bearer {{jwt_token}}"
-                  }
-                ],
-                "body": {
-                  "mode": "raw",
-                  "raw": "{\n  \"canisterId\": \"{{canister_id}}\"\n}"
-                },
-                "url": {
-                  "raw": "{{base_url}}/functions/v1/canister-delete",
-                  "host": ["{{base_url}}"],
-                  "path": ["functions", "v1", "canister-delete"]
-                }
-              }
             }
-          ]
+          },
+          "response": []
         }
-      ]
+      ],
+      "description": "Direct build service endpoints (for testing)"
     }
   ],
-  "event": [
-    {
-      "listen": "prerequest",
-      "script": {
-        "type": "text/javascript",
-        "exec": [
-          "// Auto-set user_id if not set but jwt_token exists",
-          "if (pm.collectionVariables.get('jwt_token') && !pm.collectionVariables.get('user_id')) {",
-          "    try {",
-          "        const token = pm.collectionVariables.get('jwt_token');",
-          "        const payload = JSON.parse(atob(token.split('.')[1]));",
-          "        if (payload.sub) {",
-          "            pm.collectionVariables.set('user_id', payload.sub);",
-          "        }",
-          "    } catch (e) {",
-          "        console.log('Could not extract user_id from token');",
-          "    }",
-          "}"
-        ]
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
       }
+    ]
+  },
+  "variable": [
+    {
+      "key": "supabase_url",
+      "value": "http://localhost:54321"
+    },
+    {
+      "key": "supabase_anon_key",
+      "value": "your_supabase_anon_key"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "build_service_url",
+      "value": "http://localhost:8080"
     }
   ]
 }

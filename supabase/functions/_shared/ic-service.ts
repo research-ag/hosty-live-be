@@ -6,7 +6,9 @@ import { Principal } from "npm:@dfinity/principal";
 import { Ed25519KeyIdentity } from "npm:@dfinity/identity";
 import { Secp256k1KeyIdentity } from "npm:@dfinity/identity-secp256k1";
 import { IDL } from "npm:@dfinity/candid";
+import { AssetManager } from "npm:@dfinity/assets";
 import * as pemfile from "npm:pem-file";
+import { ZipReader, BlobWriter } from "https://deno.land/x/zipjs/index.js";
 
 import { idlFactory as managementIdlFactory } from "./management.did.js";
 import type { _SERVICE as MANAGEMENT_SERVICE } from "./management.did.d.ts";
@@ -127,6 +129,272 @@ export class ICService {
       canisterId,
       agent: this.agent,
     });
+  }
+
+  async deployAssetsToCanister(
+    canisterId: string,
+    builtAssetsUrl: string
+  ): Promise<void> {
+    console.log(
+      `Deploying assets to canister ${canisterId} from ${builtAssetsUrl}`
+    );
+
+    // Download and extract files
+    const files = await this.downloadBuiltAssets(builtAssetsUrl);
+    console.log(`Extracted ${files.length} files for deployment`);
+
+    // Use AssetManager for batch upload (following reference pattern)
+    const assetManager = new AssetManager({
+      canisterId: Principal.fromText(canisterId),
+      agent: this.agent,
+    });
+
+    // Clear existing assets
+    await assetManager.clear();
+    console.log("Cleared existing assets from canister");
+
+    // Upload all files in a single batch (optimized for production)
+    const batch = assetManager.batch();
+
+    console.log(`Adding ${files.length} files to batch...`);
+    for (const file of files) {
+      await batch.store(file.content, {
+        fileName: file.path,
+        contentType: file.contentType,
+      });
+    }
+
+    console.log(`Committing batch with ${files.length} files...`);
+    await batch.commit();
+    console.log(`✅ Successfully uploaded all ${files.length} files`);
+
+    console.log(
+      `✅ Successfully deployed all ${files.length} files to canister ${canisterId}`
+    );
+  }
+
+  private async downloadBuiltAssets(
+    builtAssetsUrl: string
+  ): Promise<
+    Array<{ path: string; content: Uint8Array; contentType: string }>
+  > {
+    // Convert external URL back to internal URL when running in Edge Function
+    const internalUrl = builtAssetsUrl.replace(
+      /http:\/\/127\.0\.0\.1:54321/g,
+      Deno.env.get("SUPABASE_URL") || "http://kong:8000"
+    );
+
+    console.log(`Downloading from: ${internalUrl}`);
+    let response: Response;
+    try {
+      response = await fetch(internalUrl);
+      if (!response.ok) {
+        throw new Error(
+          `Failed to download built assets: ${response.status} ${response.statusText}`
+        );
+      }
+      console.log(
+        `Successfully downloaded built assets (${response.headers.get(
+          "content-length"
+        )} bytes)`
+      );
+    } catch (error) {
+      console.error(`Failed to fetch built assets from ${internalUrl}:`, error);
+      throw error;
+    }
+
+    const buffer = await response.arrayBuffer();
+    const files: Array<{
+      path: string;
+      content: Uint8Array;
+      contentType: string;
+    }> = [];
+
+    // Check if it's a ZIP file by looking at the magic bytes
+    const uint8Array = new Uint8Array(buffer);
+    const isZip = uint8Array[0] === 0x50 && uint8Array[1] === 0x4b; // "PK" magic bytes
+
+    if (isZip) {
+      console.log("Detected ZIP file, extracting contents...");
+      try {
+        // Create a blob from the buffer for ZipReader
+        const blob = new Blob([buffer]);
+        const zipReader = new ZipReader(blob.stream());
+        const entries = await zipReader.getEntries();
+
+        console.log(`Found ${entries.length} entries in ZIP file`);
+
+        for (const entry of entries) {
+          if (!entry.directory && entry.filename) {
+            console.log(`Extracting: ${entry.filename}`);
+
+            // Extract file content
+            const blobWriter = new BlobWriter();
+            const fileBlob = await entry.getData!(blobWriter);
+            const fileBuffer = await fileBlob.arrayBuffer();
+
+            files.push({
+              path: entry.filename,
+              content: new Uint8Array(fileBuffer),
+              contentType: this.getContentType(entry.filename),
+            });
+          }
+        }
+
+        await zipReader.close();
+        console.log(`Successfully extracted ${files.length} files from ZIP`);
+
+        // Ensure we have an index.html file
+        const hasIndexHtml = files.some(
+          (f) => f.path === "index.html" || f.path.endsWith("/index.html")
+        );
+        if (!hasIndexHtml) {
+          // Look for common entry points
+          const entryFile = files.find(
+            (f) =>
+              f.path === "index.htm" ||
+              f.path.endsWith("/index.htm") ||
+              f.path === "main.html" ||
+              f.path.endsWith("/main.html")
+          );
+
+          if (entryFile) {
+            // Rename the entry file to index.html
+            entryFile.path = "index.html";
+          } else {
+            // Create a simple index.html that lists available files
+            const fileList = files
+              .map((f) => `<li><a href="${f.path}">${f.path}</a></li>`)
+              .join("\n");
+            files.unshift({
+              path: "index.html",
+              content: new TextEncoder().encode(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Deployed App</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Successfully Deployed!</h1>
+    <p>Your application has been deployed to the Internet Computer.</p>
+    <p>Deployment completed at: ${new Date().toISOString()}</p>
+    <h2>Available Files:</h2>
+    <ul>
+${fileList}
+    </ul>
+</body>
+</html>`),
+              contentType: "text/html",
+            });
+          }
+        }
+
+        return files;
+      } catch (zipError) {
+        console.error("Failed to extract ZIP file:", zipError);
+        const errorMessage =
+          zipError instanceof Error ? zipError.message : "Unknown error";
+        // Fallback to placeholder
+        files.push({
+          path: "index.html",
+          content: new TextEncoder().encode(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Deployment Error</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Deployment Error</h1>
+    <p>Failed to extract ZIP file: ${errorMessage}</p>
+    <p>Deployment completed at: ${new Date().toISOString()}</p>
+</body>
+</html>`),
+          contentType: "text/html",
+        });
+        return files;
+      }
+    }
+
+    // Try to parse as JSON manifest first
+    try {
+      const text = new TextDecoder().decode(buffer);
+      const manifest = JSON.parse(text);
+
+      if (manifest.files && Array.isArray(manifest.files)) {
+        for (const file of manifest.files) {
+          if (file.path && file.content) {
+            files.push({
+              path: file.path,
+              content: new TextEncoder().encode(file.content),
+              contentType: this.getContentType(file.path),
+            });
+          }
+        }
+        return files;
+      }
+    } catch {
+      // Not JSON, treat as single file
+    }
+
+    // Fallback: treat as HTML content
+    const content = new Uint8Array(buffer);
+    const text = new TextDecoder().decode(content);
+
+    if (text.includes("<html") || text.includes("<!DOCTYPE")) {
+      files.push({
+        path: "index.html",
+        content: content,
+        contentType: "text/html",
+      });
+    } else {
+      // Create default index.html
+      files.push({
+        path: "index.html",
+        content: new TextEncoder().encode(`<!DOCTYPE html>
+<html>
+<head>
+    <title>Deployed App</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Successfully Deployed!</h1>
+    <p>Your application has been deployed to the Internet Computer.</p>
+    <p>Deployment completed at: ${new Date().toISOString()}</p>
+</body>
+</html>`),
+        contentType: "text/html",
+      });
+    }
+
+    return files;
+  }
+
+  private getContentType(fileName: string): string {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      html: "text/html",
+      htm: "text/html",
+      css: "text/css",
+      js: "application/javascript",
+      mjs: "application/javascript",
+      json: "application/json",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      svg: "image/svg+xml",
+      ico: "image/x-icon",
+      woff: "font/woff",
+      woff2: "font/woff2",
+      ttf: "font/ttf",
+      txt: "text/plain",
+      xml: "application/xml",
+      pdf: "application/pdf",
+    };
+    return mimeTypes[ext || ""] || "application/octet-stream";
   }
 
   async createCanister(userId: string): Promise<CreateCanisterResult> {

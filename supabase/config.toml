@@ -94,12 +94,12 @@ file_size_limit = "50MiB"
 # [storage.image_transformation]
 # enabled = true
 
-# Uncomment to configure local storage buckets
-# [storage.buckets.images]
-# public = false
-# file_size_limit = "50MiB"
-# allowed_mime_types = ["image/png", "image/jpeg"]
-# objects_path = "./images"
+# Configure storage buckets
+[storage.buckets.deployments]
+public = false
+file_size_limit = "100MiB"
+allowed_mime_types = ["application/zip", "application/x-zip-compressed"]
+objects_path = "./deployments"
 
 [auth]
 enabled = true
@@ -286,7 +286,8 @@ enabled = false
 enabled = true
 # Configure one of the supported request policies: `oneshot`, `per_worker`.
 # Use `oneshot` for hot reload, or `per_worker` for load testing.
-policy = "oneshot"
+# Changed to per_worker to enable background tasks
+policy = "per_worker"
 # Port to attach the Chrome inspector for debugging edge functions.
 inspector_port = 8083
 # The Deno major version to use.
@@ -319,7 +320,7 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 [functions.profile]
 enabled = true
 verify_jwt = true
-import_map = "./functions/profile/deno.json"
+# import_map = "./functions/profile/deno.json"
 # Uncomment to specify a custom file path to the entrypoint.
 # Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
 entrypoint = "./functions/profile/index.ts"
@@ -350,3 +351,23 @@ enabled = true
 verify_jwt = false
 # import_map = "./functions/canister-delete/deno.json"
 entrypoint = "./functions/canister-delete/index.ts"
+
+[functions.upload-deployment]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/upload-deployment/index.ts"
+
+[functions.deployment-webhook]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/deployment-webhook/index.ts"
+
+[functions.deployment-get]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/deployment-get/index.ts"
+
+[functions.deployments-list]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/deployments-list/index.ts"
