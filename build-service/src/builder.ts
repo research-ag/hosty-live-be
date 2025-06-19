@@ -157,7 +157,7 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
           env: {
             ...process.env,
             // Force non-interactive mode and disable progress bars
-            CI: "true",
+            NODE_ENV: "development", // Ensure devDependencies are installed
             YARN_SILENT: "false",
             NPM_CONFIG_PROGRESS: "false",
             NPM_CONFIG_SPIN: "false",
