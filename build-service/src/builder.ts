@@ -143,16 +143,17 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
       // Use proper CI/non-interactive flags for each package manager
       const installCommand =
         packageManager === "yarn"
-          ? "yarn install --frozen-lockfile --non-interactive --verbose"
+          ? "yarn install --frozen-lockfile --non-interactive"
           : packageManager === "pnpm"
-          ? "pnpm install --frozen-lockfile --reporter=append-only"
-          : "npm ci --verbose";
+          ? "pnpm install --frozen-lockfile --reporter=summary"
+          : "npm ci";
 
       const { stdout: installStdout, stderr: installStderr } = await execAsync(
         installCommand,
         {
           cwd: actualSourceDir,
           timeout: 300000, // 5 minutes timeout
+          maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
           env: {
             ...process.env,
             // Force non-interactive mode and disable progress bars
@@ -164,8 +165,16 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
         }
       );
 
-      buildLogs += `Install stdout: ${installStdout}\n`;
-      if (installStderr) buildLogs += `Install stderr: ${installStderr}\n`;
+      // Only log essential install info, not verbose output
+      if (installStdout.trim()) {
+        const summarizedOutput =
+          installStdout.length > 500
+            ? installStdout.substring(0, 500) +
+              `... (${installStdout.length} chars total)`
+            : installStdout;
+        buildLogs += `Install summary: ${summarizedOutput}\n`;
+      }
+      if (installStderr) buildLogs += `Install warnings: ${installStderr}\n`;
 
       // Verify installation succeeded by checking if node_modules exists
       const nodeModulesPath = join(actualSourceDir, "node_modules");
@@ -184,6 +193,7 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
       {
         cwd: actualSourceDir,
         timeout: 600000, // 10 minutes timeout
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
       }
     );
 
