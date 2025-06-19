@@ -140,23 +140,41 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
     if (await fileExists(actualPackageJsonPath)) {
       buildLogs += `Installing dependencies with ${packageManager}\n`;
 
+      // Use proper CI/non-interactive flags for each package manager
       const installCommand =
         packageManager === "yarn"
-          ? "yarn install"
+          ? "yarn install --frozen-lockfile --non-interactive --verbose"
           : packageManager === "pnpm"
-          ? "pnpm install"
-          : "npm install";
+          ? "pnpm install --frozen-lockfile --reporter=append-only"
+          : "npm ci --verbose";
 
       const { stdout: installStdout, stderr: installStderr } = await execAsync(
         installCommand,
         {
           cwd: actualSourceDir,
           timeout: 300000, // 5 minutes timeout
+          env: {
+            ...process.env,
+            // Force non-interactive mode and disable progress bars
+            CI: "true",
+            YARN_SILENT: "false",
+            NPM_CONFIG_PROGRESS: "false",
+            NPM_CONFIG_SPIN: "false",
+          },
         }
       );
 
       buildLogs += `Install stdout: ${installStdout}\n`;
       if (installStderr) buildLogs += `Install stderr: ${installStderr}\n`;
+
+      // Verify installation succeeded by checking if node_modules exists
+      const nodeModulesPath = join(actualSourceDir, "node_modules");
+      try {
+        await fs.access(nodeModulesPath);
+        buildLogs += `Dependencies installed successfully - node_modules found\n`;
+      } catch {
+        buildLogs += `Warning: node_modules directory not found after installation\n`;
+      }
     }
 
     // Run build command
