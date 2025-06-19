@@ -18,21 +18,14 @@ app.get("/health", (req, res) => {
 // Build endpoint
 app.post("/build", async (req, res) => {
   try {
-    const { deploymentId, sourceZipUrl, buildCommand, outputDir, webhookUrl } =
-      req.body;
+    const { deploymentId, sourceZipUrl, buildCommand, outputDir } = req.body;
 
     // Validate required fields
-    if (
-      !deploymentId ||
-      !sourceZipUrl ||
-      !buildCommand ||
-      !outputDir ||
-      !webhookUrl
-    ) {
+    if (!deploymentId || !sourceZipUrl || !buildCommand || !outputDir) {
       return res.status(400).json({
         success: false,
         error:
-          "Missing required fields: deploymentId, sourceZipUrl, buildCommand, outputDir, webhookUrl",
+          "Missing required fields: deploymentId, sourceZipUrl, buildCommand, outputDir",
       });
     }
 
@@ -63,7 +56,6 @@ app.post("/build", async (req, res) => {
       sourceZipUrl,
       buildCommand,
       outputDir,
-      webhookUrl,
       jobId,
     }).catch((error) => {
       console.error("Build process error:", error);

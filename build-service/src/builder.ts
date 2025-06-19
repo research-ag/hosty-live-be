@@ -5,8 +5,8 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import fetch from "node-fetch";
 import yauzl from "yauzl";
-import yazl from "yazl";
 import { createClient } from "@supabase/supabase-js";
+import { deployToInternetComputer } from "./utils/ic-deployment";
 
 const execAsync = promisify(exec);
 
@@ -15,7 +15,6 @@ export interface BuildRequest {
   sourceZipUrl: string;
   buildCommand: string;
   outputDir: string;
-  webhookUrl: string;
   jobId: string;
 }
 
@@ -28,14 +27,8 @@ export interface BuildResult {
 }
 
 export async function processDeployment(request: BuildRequest): Promise<void> {
-  const {
-    deploymentId,
-    sourceZipUrl,
-    buildCommand,
-    outputDir,
-    webhookUrl,
-    jobId,
-  } = request;
+  const { deploymentId, sourceZipUrl, buildCommand, outputDir, jobId } =
+    request;
   const startTime = Date.now();
   let buildLogs = "";
 
@@ -240,49 +233,16 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
       );
     }
 
-    // Create zip of built assets
-    buildLogs += `Creating zip of built assets\n`;
-    const builtZipPath = join(buildDir, "built-assets.zip");
-    await createZip(outputPath, builtZipPath);
-
-    // Upload to Supabase Storage
-    buildLogs += `Uploading built assets to Supabase Storage\n`;
-    const builtAssetsUrl = await uploadToSupabaseStorage(
-      builtZipPath,
-      deploymentId
-    );
-    buildLogs += `Built assets uploaded to: ${builtAssetsUrl}\n`;
-
     const duration = Date.now() - startTime;
     buildLogs += `Build completed in ${duration}ms\n`;
 
-    // Send success webhook
-    try {
-      await sendWebhook(webhookUrl, {
-        deploymentId,
-        status: "SUCCESS",
-        statusReason: "Build completed successfully",
-        builtAssetsUrl,
-        buildLogs,
-        duration,
-      });
-    } catch (webhookError) {
-      console.error(
-        "Success webhook failed, updating database directly:",
-        webhookError
-      );
-      // Fallback: Update database directly if webhook fails
-      await updateDeploymentStatusDirect(
-        deploymentId,
-        "SUCCESS",
-        "Build completed successfully",
-        {
-          built_assets_url: builtAssetsUrl,
-          build_logs: buildLogs,
-          duration_ms: duration,
-        }
-      );
-    }
+    // Deploy to IC directly from local files (no need for Supabase Storage!)
+    await deployToInternetComputer(
+      deploymentId,
+      outputPath,
+      buildLogs,
+      duration
+    );
 
     // Cleanup (skip in local development for debugging)
     if (!isLocal) {
@@ -306,43 +266,28 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
 
     console.error(`Build failed for deployment ${deploymentId}:`, error);
 
-    // Send failure webhook
-    try {
-      await sendWebhook(webhookUrl, {
-        deploymentId,
-        status: "FAILED",
-        statusReason: errorMessage,
-        buildLogs,
-        duration,
-      });
-    } catch (webhookError) {
-      console.error(
-        "Webhook failed, updating database directly:",
-        webhookError
-      );
-      // Fallback: Update database directly if webhook fails
-      await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
-        build_logs: buildLogs,
-        duration_ms: duration,
-      });
-    }
+    // Update database directly instead of using webhook
+    await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
+      build_logs: buildLogs,
+      duration_ms: duration,
+    });
   }
 }
 
 async function extractZip(zipPath: string, extractDir: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+    yauzl.open(zipPath, { lazyEntries: true }, (err: any, zipfile: any) => {
       if (err) return reject(err);
       if (!zipfile) return reject(new Error("Failed to open zip file"));
 
       zipfile.readEntry();
-      zipfile.on("entry", (entry) => {
+      zipfile.on("entry", (entry: any) => {
         if (/\/$/.test(entry.fileName)) {
           // Directory entry
           zipfile.readEntry();
         } else {
           // File entry
-          zipfile.openReadStream(entry, (err, readStream) => {
+          zipfile.openReadStream(entry, (err: any, readStream: any) => {
             if (err) return reject(err);
             if (!readStream)
               return reject(new Error("Failed to open read stream"));
@@ -366,60 +311,7 @@ async function extractZip(zipPath: string, extractDir: string): Promise<void> {
   });
 }
 
-async function createZip(sourceDir: string, zipPath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const zipFile = new yazl.ZipFile();
-    const output = require("fs").createWriteStream(zipPath);
-
-    zipFile.outputStream.pipe(output);
-
-    const addDirectory = async (dir: string, prefix = "") => {
-      const entries = await fs.readdir(dir, { withFileTypes: true });
-
-      for (const entry of entries) {
-        const fullPath = join(dir, entry.name);
-        const relativePath = join(prefix, entry.name);
-
-        if (entry.isDirectory()) {
-          await addDirectory(fullPath, relativePath);
-        } else {
-          zipFile.addFile(fullPath, relativePath);
-        }
-      }
-    };
-
-    addDirectory(sourceDir)
-      .then(() => {
-        zipFile.end();
-      })
-      .catch(reject);
-
-    output.on("close", resolve);
-    output.on("error", reject);
-  });
-}
-
-async function sendWebhook(webhookUrl: string, payload: any): Promise<void> {
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${
-        process.env.BUILD_SERVICE_TOKEN || "default-token"
-      }`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `Webhook failed: ${response.status} ${response.statusText} - ${errorText}`
-    );
-  }
-
-  console.log("Webhook sent successfully");
-}
+// Removed sendWebhook function - no longer needed since we handle everything directly
 
 async function fileExists(path: string): Promise<boolean> {
   try {
@@ -430,69 +322,7 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-async function uploadToSupabaseStorage(
-  zipPath: string,
-  deploymentId: string
-): Promise<string> {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error(
-      "Supabase configuration missing. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables."
-    );
-  }
-
-  // For local development, use external URL instead of internal Docker URL
-  const externalSupabaseUrl = supabaseUrl.includes("kong:8000")
-    ? "http://127.0.0.1:54321"
-    : supabaseUrl;
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-  // Read the built assets zip file
-  const zipBuffer = await fs.readFile(zipPath);
-
-  // Create storage path
-  const storagePath = `deployments/${deploymentId}/built-assets.zip`;
-
-  // Upload to Supabase Storage
-  const { error: uploadError } = await supabase.storage
-    .from("deployments")
-    .upload(storagePath, zipBuffer, {
-      cacheControl: "3600",
-      upsert: true,
-      contentType: "application/zip",
-    });
-
-  if (uploadError) {
-    throw new Error(
-      `Failed to upload to Supabase Storage: ${uploadError.message}`
-    );
-  }
-
-  // Create a signed URL for the uploaded file
-  const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-    .from("deployments")
-    .createSignedUrl(storagePath, 24 * 60 * 60); // 24 hours
-
-  if (signedUrlError || !signedUrlData?.signedUrl) {
-    throw new Error(
-      `Failed to create signed URL: ${
-        signedUrlError?.message || "Unknown error"
-      }`
-    );
-  }
-
-  // Fix URL for external access (replace internal Docker hostname with external URL)
-  const externalUrl = signedUrlData.signedUrl.replace(
-    /http:\/\/kong:8000/g,
-    externalSupabaseUrl
-  );
-
-  console.log("Built assets URL fixed:", externalUrl);
-  return externalUrl;
-}
+// Removed uploadToSupabaseStorage - no longer needed since we deploy directly from local files
 
 async function updateDeploymentStatusDirect(
   deploymentId: string,
