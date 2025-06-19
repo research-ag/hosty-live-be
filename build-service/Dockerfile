@@ -11,7 +11,7 @@ RUN apk add --no-cache \
     curl
 
 # Install global package managers
-RUN npm install -g yarn pnpm
+RUN npm install -g pnpm
 
 # Set working directory
 WORKDIR /app
@@ -21,7 +21,7 @@ COPY package*.json ./
 COPY tsconfig.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy source code
 COPY src/ ./src/
