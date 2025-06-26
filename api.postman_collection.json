@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "ca2c1b1d-9e13-4855-8f43-86ccbcb25d56",
     "name": "Internet Computer Web Hosting Platform API",
-    "description": "Complete API collection for IC deployment service with Supabase backend. Includes authentication, profile management, canister lifecycle, and deployment with file uploads.",
+    "description": "Complete API collection for IC deployment service with Supabase backend. Includes authentication, profile management, cycles management, canister lifecycle, and deployment with file uploads.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "40550451"
   },
@@ -152,10 +152,320 @@
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/profile",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "profile"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"id\": \"12345678-1234-1234-1234-123456789abc\",\n  \"username\": \"testuser\",\n  \"faucetUsedAt\": \"2024-01-15T10:30:00.000Z\",\n  \"cyclesBalance\": \"2000000000000\",\n  \"createdAt\": \"2023-12-01T08:00:00.000Z\",\n  \"updatedAt\": \"2024-01-15T10:30:00.000Z\"\n}"
+            }
+          ]
         }
       ],
-      "description": "User profile operations"
+      "description": "User profile operations (includes cycles balance)"
+    },
+    {
+      "name": "Cycles Management",
+      "item": [
+        {
+          "name": "Get Cycles Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/cycles",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "cycles"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/cycles",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "cycles"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"cyclesBalance\": \"2000000000000\",\n  \"canisterCreationCost\": \"800000000000\",\n  \"canCreateCanister\": true,\n  \"balanceFormatted\": \"2 TC\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Check Faucet Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/faucet",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "faucet"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Faucet Available",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/faucet",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "faucet"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"canUseFaucet\": true,\n  \"cyclesBalance\": \"0\",\n  \"faucetAmount\": \"2000000000000\",\n  \"lastUsedAt\": null,\n  \"nextAvailableAt\": null,\n  \"cooldownMs\": 604800000\n}"
+            },
+            {
+              "name": "Faucet On Cooldown",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/faucet",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "faucet"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"canUseFaucet\": false,\n  \"cyclesBalance\": \"2000000000000\",\n  \"faucetAmount\": \"2000000000000\",\n  \"lastUsedAt\": \"2024-01-15T10:30:00.000Z\",\n  \"nextAvailableAt\": \"2024-01-22T10:30:00.000Z\",\n  \"cooldownMs\": 604800000\n}"
+            }
+          ]
+        },
+        {
+          "name": "Use Faucet",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/faucet",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "faucet"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/faucet",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "faucet"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"cyclesAdded\": \"2000000000000\",\n  \"newBalance\": \"2000000000000\",\n  \"faucetUsedAt\": \"2024-01-15T10:30:00.000Z\",\n  \"nextAvailableAt\": \"2024-01-22T10:30:00.000Z\"\n}"
+            },
+            {
+              "name": "Faucet On Cooldown Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": ""
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/faucet",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "faucet"
+                  ]
+                }
+              },
+              "status": "Too Many Requests",
+              "code": 429,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"error\": \"Faucet is on cooldown\",\n  \"nextAvailableAt\": \"2024-01-22T10:30:00.000Z\",\n  \"cooldownMs\": 604800000\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Cycles management for canister creation - get free cycles from faucet once per week"
     },
     {
       "name": "Canister Management",
@@ -190,7 +500,92 @@
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"My Web App\",\n  \"description\": \"A sample web application\"\n}"
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-create",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-create"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"canisterNumber\": 1,\n    \"canisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n    \"frontendUrl\": \"https://rdmx6-jaaaa-aaaaa-aaadq-cai.icp0.io/\"\n  }\n}"
+            },
+            {
+              "name": "Insufficient Cycles Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"My Web App\",\n  \"description\": \"A sample web application\"\n}"
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-create",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-create"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Insufficient cycles. Required: 800000000000, Available: 0\"\n}"
+            }
+          ]
         },
         {
           "name": "List User Canisters",
@@ -227,7 +622,7 @@
               }
             ],
             "url": {
-              "raw": "{{supabase_url}}/functions/v1/canister-get?canisterId=your-canister-id",
+              "raw": "{{supabase_url}}/functions/v1/canister-get?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai",
               "host": [
                 "{{supabase_url}}"
               ],
@@ -239,8 +634,8 @@
               "query": [
                 {
                   "key": "canisterId",
-                  "value": "your-canister-id",
-                  "description": "Replace with actual canister ID"
+                  "value": "rdmx6-jaaaa-aaaaa-aaadq-cai",
+                  "description": "IC canister ID (e.g., rdmx6-jaaaa-aaaaa-aaadq-cai)"
                 }
               ]
             }
@@ -258,7 +653,7 @@
               }
             ],
             "url": {
-              "raw": "{{supabase_url}}/functions/v1/canister-delete?canisterId=your-canister-id",
+              "raw": "{{supabase_url}}/functions/v1/canister-delete?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai",
               "host": [
                 "{{supabase_url}}"
               ],
@@ -270,8 +665,8 @@
               "query": [
                 {
                   "key": "canisterId",
-                  "value": "your-canister-id",
-                  "description": "Replace with actual canister ID"
+                  "value": "rdmx6-jaaaa-aaaaa-aaadq-cai",
+                  "description": "IC canister ID (e.g., rdmx6-jaaaa-aaaaa-aaadq-cai)"
                 }
               ]
             }
@@ -279,7 +674,7 @@
           "response": []
         }
       ],
-      "description": "Internet Computer canister lifecycle management"
+      "description": "Internet Computer canister lifecycle management (requires cycles for creation)"
     },
     {
       "name": "Deployment Management",
@@ -306,7 +701,7 @@
                 {
                   "key": "canisterId",
                   "value": "bd59a6dc-0a03-42ea-b2d3-bc785d7fb21c",
-                  "description": "ID of the canister to deploy to",
+                  "description": "Internal canister UUID (from database)",
                   "type": "text"
                 },
                 {
@@ -348,7 +743,7 @@
               }
             ],
             "url": {
-              "raw": "{{supabase_url}}/functions/v1/deployments-list?canisterId=your-canister-id",
+              "raw": "{{supabase_url}}/functions/v1/deployments-list?limit=10&offset=0",
               "host": [
                 "{{supabase_url}}"
               ],
@@ -359,14 +754,54 @@
               ],
               "query": [
                 {
-                  "key": "canisterId",
-                  "value": "your-canister-id",
-                  "description": "Filter deployments by canister ID (optional)"
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of deployments to return (max 100)"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Number of deployments to skip"
                 }
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/deployments-list",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "deployments-list"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"deployments\": [\n    {\n      \"id\": \"f761cb5a-bc8e-408d-95d3-71ff424dbea2\",\n      \"user_id\": \"12345678-1234-1234-1234-123456789abc\",\n      \"canister_id\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n      \"status\": \"SUCCESS\",\n      \"build_command\": \"npm run build\",\n      \"output_dir\": \"dist\",\n      \"duration_ms\": 45000,\n      \"deployed_at\": \"2024-01-15T12:00:00.000Z\",\n      \"created_at\": \"2024-01-15T11:59:15.000Z\",\n      \"updated_at\": \"2024-01-15T12:00:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"limit\": 20,\n    \"offset\": 0,\n    \"hasMore\": false\n  }\n}"
+            }
+          ]
         },
         {
           "name": "Get Deployment Details",
@@ -392,15 +827,57 @@
                 {
                   "key": "id",
                   "value": "f761cb5a-bc8e-408d-95d3-71ff424dbea2",
-                  "description": "Replace with actual deployment ID"
+                  "description": "Deployment UUID"
                 }
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/deployment-get?id=f761cb5a-bc8e-408d-95d3-71ff424dbea2",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "deployment-get"
+                  ],
+                  "query": [
+                    {
+                      "key": "id",
+                      "value": "f761cb5a-bc8e-408d-95d3-71ff424dbea2",
+                      "description": "Deployment UUID"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"deployment\": {\n    \"id\": \"f761cb5a-bc8e-408d-95d3-71ff424dbea2\",\n    \"user_id\": \"12345678-1234-1234-1234-123456789abc\",\n    \"canister_id\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n    \"status\": \"SUCCESS\",\n    \"build_command\": \"npm run build\",\n    \"output_dir\": \"dist\",\n    \"duration_ms\": 45000,\n    \"deployed_at\": \"2024-01-15T12:00:00.000Z\",\n    \"created_at\": \"2024-01-15T11:59:15.000Z\",\n    \"updated_at\": \"2024-01-15T12:00:00.000Z\"\n  }\n}"
+            }
+          ]
         }
       ],
-      "description": "Web application deployment operations with file uploads"
+      "description": "Web application deployment operations with file uploads. Note: canister_id in responses is now the IC canister ID (e.g., rdmx6-jaaaa-aaaaa-aaadq-cai)"
     },
     {
       "name": "Build Service",

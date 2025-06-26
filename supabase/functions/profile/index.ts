@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
 async function handleGetProfile(supabase: SupabaseClient, userId: string) {
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('id, username, faucet_used_at, created_at, updated_at')
+    .select('id, username, faucet_used_at, cycles_balance, created_at, updated_at')
     .eq('id', userId)
     .single()
 
@@ -100,6 +100,7 @@ async function handleGetProfile(supabase: SupabaseClient, userId: string) {
       id: profile.id,
       username: profile.username,
       faucetUsedAt: profile.faucet_used_at,
+      cyclesBalance: profile.cycles_balance,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at
     }),
@@ -122,7 +123,7 @@ async function handleUpdateProfile(supabase: SupabaseClient, userId: string, req
     .from('profiles')
     .update({ username: username.trim() })
     .eq('id', userId)
-    .select('id, username, faucet_used_at, created_at, updated_at')
+    .select('id, username, faucet_used_at, cycles_balance, created_at, updated_at')
     .single()
 
   if (error) {
@@ -138,6 +139,7 @@ async function handleUpdateProfile(supabase: SupabaseClient, userId: string, req
       id: profile.id,
       username: profile.username,
       faucetUsedAt: profile.faucet_used_at,
+      cyclesBalance: profile.cycles_balance,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at
     }),

@@ -11,7 +11,7 @@ export type DeploymentStatus =
 export interface DeploymentRecord {
   id: string;
   user_id: string;
-  canister_id: string;
+  canister_id: string; // This is the IC canister ID (e.g., "rdmx6-jaaaa-aaaaa-aaadq-cai") in API responses
   status: DeploymentStatus;
   status_reason?: string;
   build_command?: string;

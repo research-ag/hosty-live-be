@@ -58,12 +58,31 @@ export async function updateDeploymentStatus(
   return data;
 }
 
+// Helper function to transform deployment data to replace internal canister_id with ic_canister_id
+function transformDeploymentData(deployment: any): any {
+  if (!deployment) return null;
+  
+  // If deployment has canister data from join, use it
+  if (deployment.canister && deployment.canister.ic_canister_id) {
+    return {
+      ...deployment,
+      canister_id: deployment.canister.ic_canister_id, // Replace internal ID with IC canister ID
+      canister: undefined // Remove the nested canister object
+    };
+  }
+  
+  return deployment;
+}
+
 export async function getDeployment(
   deploymentId: string
 ): Promise<DeploymentRecord | null> {
   const { data, error } = await supabase
     .from("deployments")
-    .select("*")
+    .select(`
+      *,
+      canister:canisters!inner(ic_canister_id)
+    `)
     .eq("id", deploymentId)
     .single();
 
@@ -72,7 +91,7 @@ export async function getDeployment(
     throw new Error(`Failed to get deployment: ${error.message}`);
   }
 
-  return data;
+  return transformDeploymentData(data);
 }
 
 export async function getDeploymentWithCanister(deploymentId: string): Promise<{
@@ -96,7 +115,7 @@ export async function getDeploymentWithCanister(deploymentId: string): Promise<{
   }
 
   return {
-    deployment: data,
+    deployment: transformDeploymentData(data),
     canister: data.canister,
   };
 }
@@ -108,7 +127,10 @@ export async function getUserDeployments(
 ): Promise<DeploymentRecord[]> {
   const { data, error } = await supabase
     .from("deployments")
-    .select("*")
+    .select(`
+      *,
+      canister:canisters!inner(ic_canister_id)
+    `)
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -117,7 +139,8 @@ export async function getUserDeployments(
     throw new Error(`Failed to get user deployments: ${error.message}`);
   }
 
-  return data || [];
+  // Transform all deployments to use IC canister IDs
+  return (data || []).map(transformDeploymentData);
 }
 
 // Canister operations

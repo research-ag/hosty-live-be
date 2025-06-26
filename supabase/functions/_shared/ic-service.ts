@@ -398,6 +398,30 @@ ${fileList}
   }
 
   async createCanister(userId: string): Promise<CreateCanisterResult> {
+    const CANISTER_CREATION_COST = 800_000_000_000n; // 0.8 TC
+
+    // Check user's cycles balance first
+    const { data: profile, error: profileError } = await this.supabase
+      .from("profiles")
+      .select("cycles_balance")
+      .eq("id", userId)
+      .single();
+
+    if (profileError) {
+      throw new Error(`Failed to fetch user profile: ${profileError.message}`);
+    }
+
+    if (!profile) {
+      throw new Error("User profile not found");
+    }
+
+    const currentBalance = BigInt(profile.cycles_balance);
+    if (currentBalance < CANISTER_CREATION_COST) {
+      throw new Error(
+        `Insufficient cycles. Required: ${CANISTER_CREATION_COST.toString()}, Available: ${currentBalance.toString()}`
+      );
+    }
+
     const { data: existingCanisters } = await this.supabase
       .from("canisters")
       .select("id")
@@ -405,7 +429,30 @@ ${fileList}
       .eq("deleted", false);
 
     const canisterNumber = (existingCanisters?.length || 0) + 1;
-    const canisterId = await this.createCanisterInIC();
+
+    // Deduct cycles from user balance
+    const newBalance = currentBalance - CANISTER_CREATION_COST;
+    const { error: balanceUpdateError } = await this.supabase
+      .from("profiles")
+      .update({ cycles_balance: newBalance.toString() })
+      .eq("id", userId);
+
+    if (balanceUpdateError) {
+      throw new Error(`Failed to deduct cycles: ${balanceUpdateError.message}`);
+    }
+
+    let canisterId: string;
+    try {
+      canisterId = await this.createCanisterInIC();
+    } catch (error) {
+      // Rollback: refund the cycles if canister creation fails
+      await this.supabase
+        .from("profiles")
+        .update({ cycles_balance: currentBalance.toString() })
+        .eq("id", userId);
+
+      throw error;
+    }
 
     const { data: canister, error } = await this.supabase
       .from("canisters")
@@ -416,7 +463,15 @@ ${fileList}
       .select()
       .single();
 
-    if (error) throw new Error(`Failed to save canister: ${error.message}`);
+    if (error) {
+      // Rollback: refund the cycles if database insert fails
+      await this.supabase
+        .from("profiles")
+        .update({ cycles_balance: currentBalance.toString() })
+        .eq("id", userId);
+
+      throw new Error(`Failed to save canister: ${error.message}`);
+    }
 
     return {
       canister: {
@@ -619,7 +674,9 @@ ${fileList}
   }
 
   private async getCanisterInfoFromIC(canisterId: string) {
-    const status = await this.managementCanister.canister_status({
+    const status = await this.managementCanister.canister_status.withOptions({
+      effectiveCanisterId: Principal.fromText(canisterId),
+    })({
       canister_id: Principal.fromText(canisterId),
     });
 
