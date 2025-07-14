@@ -17,6 +17,9 @@ export interface DeploymentRecord {
   build_command?: string;
   output_dir?: string;
   source_zip_url?: string;
+  source_git_repo?: string;
+  source_type?: "zip" | "git";
+  git_branch?: string;
   built_assets_url?: string;
   build_service_job_id?: string;
   build_logs?: string;
@@ -42,6 +45,15 @@ export interface BuildServiceRequest {
   buildCommand: string;
   outputDir: string;
   webhookUrl: string;
+}
+
+export interface GitBuildServiceRequest {
+  deploymentId: string;
+  gitRepoUrl: string;
+  buildCommand: string;
+  outputDir: string;
+  webhookUrl: string;
+  branch?: string;
 }
 
 export interface WebhookPayload {

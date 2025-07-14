@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { processDeployment } from "./builder";
+import { processDeployment, processGitDeployment } from "./builder";
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -69,6 +69,60 @@ app.post("/build", async (req, res) => {
     });
   } catch (error) {
     console.error("Build endpoint error:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+});
+
+// Git build endpoint
+app.post("/build-git", async (req, res) => {
+  try {
+    const { deploymentId, gitRepoUrl, buildCommand, outputDir, branch } = req.body;
+
+    if (!deploymentId || !gitRepoUrl || !buildCommand || !outputDir) {
+      return res.status(400).json({
+        success: false,
+        error:
+          "Missing required fields: deploymentId, gitRepoUrl, buildCommand, outputDir",
+      });
+    }
+
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.BUILD_SERVICE_TOKEN || "default-token";
+
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ") ||
+      authHeader.slice(7) !== expectedToken
+    ) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
+    }
+
+    const jobId = `build_git_${deploymentId}_${Date.now()}`;
+
+    processGitDeployment({
+      deploymentId,
+      gitRepoUrl,
+      buildCommand,
+      outputDir,
+      branch: branch || "main",
+      jobId,
+    }).catch((error) => {
+      console.error("Git build process error:", error);
+    });
+
+    res.json({
+      success: true,
+      jobId,
+      message: "Git build started",
+    });
+  } catch (error) {
+    console.error("Git build endpoint error:", error);
     res.status(500).json({
       success: false,
       error: error instanceof Error ? error.message : "Internal server error",

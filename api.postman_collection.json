@@ -733,6 +733,38 @@
           "response": []
         },
         {
+          "name": "Deploy from Git Repository",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gitRepoUrl\": \"https://github.com/user/repo.git\",\n  \"canisterId\": \"bd59a6dc-0a03-42ea-b2d3-bc785d7fb21c\",\n  \"buildCommand\": \"npm run build\",\n  \"outputDir\": \"dist\",\n  \"branch\": \"main\"\n}"
+            },
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/upload-deployment-git",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "upload-deployment-git"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "List Deployments",
           "request": {
             "method": "GET",

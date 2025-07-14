@@ -163,7 +163,7 @@ async function deployAssetsToCanister(
     identity,
     fetch: globalThis.fetch,
     host: isLocal
-      ? `http://host.docker.internal:${process.env.IC_REPLICA_PORT || "4943"}`
+      ? `http://127.0.0.1:${process.env.IC_REPLICA_PORT || "4943"}`
       : "https://ic0.app",
   });
 

@@ -3,3 +3,4 @@ _repos
 node_modules
 .env
 .env.dev
+hidden_*.md

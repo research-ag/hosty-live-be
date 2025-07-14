@@ -2,7 +2,7 @@
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "bolt-hackathon-be"
+project_id = "dhosty"
 
 [api]
 enabled = true
@@ -371,3 +371,8 @@ entrypoint = "./functions/deployment-get/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/deployments-list/index.ts"
+
+[functions.upload-deployment-git]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/upload-deployment-git/index.ts"

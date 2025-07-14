@@ -18,6 +18,15 @@ export interface BuildRequest {
   jobId: string;
 }
 
+export interface GitBuildRequest {
+  deploymentId: string;
+  gitRepoUrl: string;
+  buildCommand: string;
+  outputDir: string;
+  branch: string;
+  jobId: string;
+}
+
 export interface BuildResult {
   success: boolean;
   builtAssetsUrl?: string;
@@ -270,6 +279,178 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
     await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
       build_logs: buildLogs,
       duration_ms: duration,
+    });
+  }
+}
+
+export async function processGitDeployment(
+  request: GitBuildRequest
+): Promise<void> {
+  const { deploymentId, gitRepoUrl, buildCommand, outputDir, branch, jobId } =
+    request;
+  const startTime = Date.now();
+  let buildLogs = "";
+
+  const isLocal = process.env.NODE_ENV !== "production";
+
+  console.log(`Starting git build process for deployment ${deploymentId}`);
+
+  try {
+    const tempDir = isLocal
+      ? join(process.cwd(), "temp", `build_${jobId}`)
+      : `/tmp/build_${jobId}`;
+    const sourceDir = join(tempDir, "source");
+    const buildDir = join(tempDir, "build");
+
+    await fs.mkdir(tempDir, { recursive: true });
+    await fs.mkdir(sourceDir, { recursive: true });
+    await fs.mkdir(buildDir, { recursive: true });
+
+    buildLogs += `Created temporary directories: ${tempDir}\n`;
+    buildLogs += `Cloning git repository: ${gitRepoUrl}\n`;
+    buildLogs += `Branch: ${branch}\n`;
+
+    await updateDeploymentStatusDirect(
+      deploymentId,
+      "BUILDING",
+      "Cloning repository"
+    );
+
+    const cloneCommand = `git clone --depth 1 --branch ${branch} ${gitRepoUrl} ${sourceDir}`;
+    const { stdout: cloneStdout, stderr: cloneStderr } = await execAsync(
+      cloneCommand
+    );
+
+    buildLogs += `Clone stdout: ${cloneStdout}\n`;
+    if (cloneStderr) {
+      buildLogs += `Clone stderr: ${cloneStderr}\n`;
+    }
+
+    buildLogs += `Repository cloned successfully\n`;
+
+    const actualSourceDir = sourceDir;
+    const sourceFiles = await fs.readdir(actualSourceDir);
+    buildLogs += `Source files found: ${sourceFiles.join(", ")}\n`;
+
+    let packageManager = "npm";
+    if (await fileExists(join(actualSourceDir, "yarn.lock"))) {
+      packageManager = "yarn";
+    } else if (await fileExists(join(actualSourceDir, "pnpm-lock.yaml"))) {
+      packageManager = "pnpm";
+    }
+
+    buildLogs += `Detected package manager: ${packageManager}\n`;
+
+    const installCommand =
+      packageManager === "yarn"
+        ? "yarn install"
+        : packageManager === "pnpm"
+        ? "pnpm install"
+        : "npm install";
+
+    buildLogs += `Running install command: ${installCommand}\n`;
+    await updateDeploymentStatusDirect(
+      deploymentId,
+      "BUILDING",
+      "Installing dependencies"
+    );
+
+    const { stdout: installStdout, stderr: installStderr } = await execAsync(
+      installCommand,
+      {
+        cwd: actualSourceDir,
+        timeout: 5 * 60 * 1000,
+      }
+    );
+
+    buildLogs += `Install stdout: ${installStdout}\n`;
+    if (installStderr) {
+      buildLogs += `Install stderr: ${installStderr}\n`;
+    }
+
+    buildLogs += `Running build command: ${buildCommand}\n`;
+    await updateDeploymentStatusDirect(
+      deploymentId,
+      "BUILDING",
+      "Building project"
+    );
+
+    const { stdout: buildStdout, stderr: buildStderr } = await execAsync(
+      buildCommand,
+      {
+        cwd: actualSourceDir,
+        timeout: 10 * 60 * 1000,
+      }
+    );
+
+    buildLogs += `Build stdout: ${buildStdout}\n`;
+    if (buildStderr) {
+      buildLogs += `Build stderr: ${buildStderr}\n`;
+    }
+
+    const outputPath = join(actualSourceDir, outputDir);
+    try {
+      await fs.access(outputPath);
+      buildLogs += `Output directory found: ${outputPath}\n`;
+    } catch {
+      buildLogs += `Output directory '${outputDir}' not found after build\n`;
+      try {
+        const files = await fs.readdir(actualSourceDir, {
+          withFileTypes: true,
+        });
+        const dirs = files.filter((f) => f.isDirectory()).map((f) => f.name);
+        buildLogs += `Available directories in source: ${dirs.join(", ")}\n`;
+
+        const commonOutputDirs = [
+          "dist",
+          "build",
+          "out",
+          "public",
+          ".next",
+          "_site",
+        ];
+        const foundOutputDirs = dirs.filter((dir) =>
+          commonOutputDirs.includes(dir)
+        );
+        if (foundOutputDirs.length > 0) {
+          buildLogs += `Possible output directories found: ${foundOutputDirs.join(
+            ", "
+          )}\n`;
+        }
+      } catch (listError) {
+        buildLogs += `Failed to list source directories: ${listError}\n`;
+      }
+      throw new Error(
+        `Output directory '${outputDir}' not found after build. Check build logs for available directories.`
+      );
+    }
+
+    const duration = Date.now() - startTime;
+    buildLogs += `Build completed in ${duration}ms\n`;
+
+    await deployToInternetComputer(
+      deploymentId,
+      outputPath,
+      buildLogs,
+      duration
+    );
+
+    if (!isLocal) {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    } else {
+      buildLogs += `Temporary directory preserved for debugging: ${tempDir}\n`;
+    }
+
+    console.log(`Git build process completed for deployment ${deploymentId}`);
+  } catch (error) {
+    console.error("Git build process error:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    buildLogs += `Build failed: ${errorMessage}\n`;
+
+    await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
+      build_logs: buildLogs,
+      duration_ms: Date.now() - startTime,
     });
   }
 }
