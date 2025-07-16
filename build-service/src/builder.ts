@@ -44,7 +44,8 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
   // For local development, use project root; for production, use /tmp
   const isLocal = process.env.NODE_ENV !== "production";
 
-  console.log(`Starting build process for deployment ${deploymentId}`);
+  console.log(`[ZIP-BUILD] Starting build process for deployment ${deploymentId}`);
+  console.log(`[ZIP-BUILD] Request:`, JSON.stringify(request, null, 2));
 
   try {
     // Create temporary directories
@@ -273,13 +274,18 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
       buildLogs += `Temp files preserved for debugging at: ${tempDir}\n`;
     }
 
-    console.error(`Build failed for deployment ${deploymentId}:`, error);
+    console.error(`[ZIP-BUILD] Build failed for deployment ${deploymentId}:`, error);
+    console.error(`[ZIP-BUILD] Error stack:`, error instanceof Error ? error.stack : 'No stack');
 
     // Update database directly instead of using webhook
-    await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
-      build_logs: buildLogs,
-      duration_ms: duration,
-    });
+    try {
+      await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
+        build_logs: buildLogs,
+        duration_ms: duration,
+      });
+    } catch (updateError) {
+      console.error(`[ZIP-BUILD] Failed to update deployment status:`, updateError);
+    }
   }
 }
 
@@ -293,7 +299,8 @@ export async function processGitDeployment(
 
   const isLocal = process.env.NODE_ENV !== "production";
 
-  console.log(`Starting git build process for deployment ${deploymentId}`);
+  console.log(`[GIT-BUILD] Starting git build process for deployment ${deploymentId}`);
+  console.log(`[GIT-BUILD] Request:`, JSON.stringify(request, null, 2));
 
   try {
     const tempDir = isLocal
@@ -441,17 +448,22 @@ export async function processGitDeployment(
       buildLogs += `Temporary directory preserved for debugging: ${tempDir}\n`;
     }
 
-    console.log(`Git build process completed for deployment ${deploymentId}`);
+    console.log(`[GIT-BUILD] Git build process completed for deployment ${deploymentId}`);
   } catch (error) {
-    console.error("Git build process error:", error);
+    console.error(`[GIT-BUILD] Git build process error for deployment ${deploymentId}:`, error);
+    console.error(`[GIT-BUILD] Error stack:`, error instanceof Error ? error.stack : 'No stack');
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
     buildLogs += `Build failed: ${errorMessage}\n`;
 
-    await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
-      build_logs: buildLogs,
-      duration_ms: Date.now() - startTime,
-    });
+    try {
+      await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
+        build_logs: buildLogs,
+        duration_ms: Date.now() - startTime,
+      });
+    } catch (updateError) {
+      console.error(`[GIT-BUILD] Failed to update deployment status:`, updateError);
+    }
   }
 }
 
@@ -540,13 +552,12 @@ async function updateDeploymentStatusDirect(
       .eq("id", deploymentId);
 
     if (error) {
-      console.error("Failed to update deployment status directly:", error);
+      console.error(`[DB-UPDATE] Failed to update deployment ${deploymentId} status directly:`, error);
     } else {
-      console.log(
-        `Updated deployment ${deploymentId} status to ${status} directly`
-      );
+      console.log(`[DB-UPDATE] Updated deployment ${deploymentId} status to ${status} directly`);
     }
   } catch (error) {
-    console.error("Error in direct database update:", error);
+    console.error(`[DB-UPDATE] Error in direct database update for deployment ${deploymentId}:`, error);
+    console.error(`[DB-UPDATE] Error stack:`, error instanceof Error ? error.stack : 'No stack');
   }
 }

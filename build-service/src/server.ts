@@ -58,7 +58,14 @@ app.post("/build", async (req, res) => {
       outputDir,
       jobId,
     }).catch((error) => {
-      console.error("Build process error:", error);
+      console.error(
+        `[SERVER] Build process error for deployment ${deploymentId}:`,
+        error
+      );
+      console.error(
+        `[SERVER] Error stack:`,
+        error instanceof Error ? error.stack : "No stack"
+      );
     });
 
     // Return immediately with job ID
@@ -79,7 +86,8 @@ app.post("/build", async (req, res) => {
 // Git build endpoint
 app.post("/build-git", async (req, res) => {
   try {
-    const { deploymentId, gitRepoUrl, buildCommand, outputDir, branch } = req.body;
+    const { deploymentId, gitRepoUrl, buildCommand, outputDir, branch } =
+      req.body;
 
     if (!deploymentId || !gitRepoUrl || !buildCommand || !outputDir) {
       return res.status(400).json({
@@ -113,7 +121,14 @@ app.post("/build-git", async (req, res) => {
       branch: branch || "main",
       jobId,
     }).catch((error) => {
-      console.error("Git build process error:", error);
+      console.error(
+        `[SERVER] Git build process error for deployment ${deploymentId}:`,
+        error
+      );
+      console.error(
+        `[SERVER] Error stack:`,
+        error instanceof Error ? error.stack : "No stack"
+      );
     });
 
     res.json({
