@@ -91,19 +91,49 @@ export async function deployToInternetComputer(
       icError instanceof Error
         ? icError.message
         : "Unknown IC deployment error";
-
-    await updateDeploymentStatus(
-      deploymentId,
-      "FAILED",
-      `IC deployment failed: ${errorMessage}`,
-      {
-        build_logs: buildLogs,
-        duration_ms: duration,
-      }
+    const userFriendlyError = getUserFriendlyICError(
+      icError instanceof Error ? icError : errorMessage
     );
+
+    await updateDeploymentStatus(deploymentId, "FAILED", userFriendlyError, {
+      build_logs: buildLogs + `\nIC deployment failed: ${errorMessage}`,
+      duration_ms: duration,
+    });
 
     throw icError;
   }
+}
+
+function getUserFriendlyICError(error: Error | string): string {
+  const errorMessage = typeof error === "string" ? error : error.message;
+  const errorLower = errorMessage.toLowerCase();
+
+  if (errorLower.includes("cycles") || errorLower.includes("wallet")) {
+    return "Insufficient cycles for deployment";
+  }
+  if (errorLower.includes("canister") && errorLower.includes("not found")) {
+    return "Target canister not found";
+  }
+  if (
+    errorLower.includes("fetch failed") ||
+    errorLower.includes("error while making call")
+  ) {
+    return "Deployment to Internet Computer failed";
+  }
+  if (
+    errorLower.includes("permission") ||
+    errorLower.includes("unauthorized")
+  ) {
+    return "IC deployment permission denied";
+  }
+  if (errorLower.includes("timeout") || errorLower.includes("timed out")) {
+    return "IC deployment timeout";
+  }
+  if (errorLower.includes("network") || errorLower.includes("connection")) {
+    return "IC network connection failed";
+  }
+
+  return "Deployment to Internet Computer failed";
 }
 
 async function updateDeploymentStatus(

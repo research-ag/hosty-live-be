@@ -44,7 +44,9 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
   // For local development, use project root; for production, use /tmp
   const isLocal = process.env.NODE_ENV !== "production";
 
-  console.log(`[ZIP-BUILD] Starting build process for deployment ${deploymentId}`);
+  console.log(
+    `[ZIP-BUILD] Starting build process for deployment ${deploymentId}`
+  );
   console.log(`[ZIP-BUILD] Request:`, JSON.stringify(request, null, 2));
 
   try {
@@ -264,6 +266,10 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
     const duration = Date.now() - startTime;
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+    const userFriendlyError = getUserFriendlyError(
+      error instanceof Error ? error : errorMessage
+    );
+
     buildLogs += `Build failed: ${errorMessage}\n`;
 
     // Add temp directory info for debugging
@@ -274,17 +280,31 @@ export async function processDeployment(request: BuildRequest): Promise<void> {
       buildLogs += `Temp files preserved for debugging at: ${tempDir}\n`;
     }
 
-    console.error(`[ZIP-BUILD] Build failed for deployment ${deploymentId}:`, error);
-    console.error(`[ZIP-BUILD] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    console.error(
+      `[ZIP-BUILD] Build failed for deployment ${deploymentId}:`,
+      error
+    );
+    console.error(
+      `[ZIP-BUILD] Error stack:`,
+      error instanceof Error ? error.stack : "No stack"
+    );
 
     // Update database directly instead of using webhook
     try {
-      await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
-        build_logs: buildLogs,
-        duration_ms: duration,
-      });
+      await updateDeploymentStatusDirect(
+        deploymentId,
+        "FAILED",
+        userFriendlyError,
+        {
+          build_logs: buildLogs,
+          duration_ms: duration,
+        }
+      );
     } catch (updateError) {
-      console.error(`[ZIP-BUILD] Failed to update deployment status:`, updateError);
+      console.error(
+        `[ZIP-BUILD] Failed to update deployment status:`,
+        updateError
+      );
     }
   }
 }
@@ -299,7 +319,9 @@ export async function processGitDeployment(
 
   const isLocal = process.env.NODE_ENV !== "production";
 
-  console.log(`[GIT-BUILD] Starting git build process for deployment ${deploymentId}`);
+  console.log(
+    `[GIT-BUILD] Starting git build process for deployment ${deploymentId}`
+  );
   console.log(`[GIT-BUILD] Request:`, JSON.stringify(request, null, 2));
 
   try {
@@ -448,21 +470,41 @@ export async function processGitDeployment(
       buildLogs += `Temporary directory preserved for debugging: ${tempDir}\n`;
     }
 
-    console.log(`[GIT-BUILD] Git build process completed for deployment ${deploymentId}`);
+    console.log(
+      `[GIT-BUILD] Git build process completed for deployment ${deploymentId}`
+    );
   } catch (error) {
-    console.error(`[GIT-BUILD] Git build process error for deployment ${deploymentId}:`, error);
-    console.error(`[GIT-BUILD] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    console.error(
+      `[GIT-BUILD] Git build process error for deployment ${deploymentId}:`,
+      error
+    );
+    console.error(
+      `[GIT-BUILD] Error stack:`,
+      error instanceof Error ? error.stack : "No stack"
+    );
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error occurred";
+    const userFriendlyError = getUserFriendlyError(
+      error instanceof Error ? error : errorMessage
+    );
+
     buildLogs += `Build failed: ${errorMessage}\n`;
 
     try {
-      await updateDeploymentStatusDirect(deploymentId, "FAILED", errorMessage, {
-        build_logs: buildLogs,
-        duration_ms: Date.now() - startTime,
-      });
+      await updateDeploymentStatusDirect(
+        deploymentId,
+        "FAILED",
+        userFriendlyError,
+        {
+          build_logs: buildLogs,
+          duration_ms: Date.now() - startTime,
+        }
+      );
     } catch (updateError) {
-      console.error(`[GIT-BUILD] Failed to update deployment status:`, updateError);
+      console.error(
+        `[GIT-BUILD] Failed to update deployment status:`,
+        updateError
+      );
     }
   }
 }
@@ -515,6 +557,115 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
+function getUserFriendlyError(error: Error | string): string {
+  const errorMessage = typeof error === "string" ? error : error.message;
+  const errorLower = errorMessage.toLowerCase();
+
+  // Git-related errors
+  if (
+    errorLower.includes("remote branch") &&
+    errorLower.includes("not found")
+  ) {
+    return "Repository branch not found";
+  }
+  if (
+    errorLower.includes("repository not found") ||
+    errorLower.includes("not found in upstream")
+  ) {
+    return "Repository not found";
+  }
+  if (
+    errorLower.includes("permission denied") ||
+    errorLower.includes("authentication failed")
+  ) {
+    return "Repository access denied";
+  }
+  if (errorLower.includes("git clone") || errorLower.includes("cloning into")) {
+    return "Failed to clone repository";
+  }
+
+  // Build-related errors
+  if (
+    errorLower.includes("command not found") ||
+    errorLower.includes("is not recognized")
+  ) {
+    return "Build command not found";
+  }
+  if (
+    errorLower.includes("permission denied") &&
+    errorLower.includes("eacces")
+  ) {
+    return "Permission denied during build";
+  }
+  if (errorLower.includes("enospc") || errorLower.includes("no space left")) {
+    return "Insufficient disk space";
+  }
+  if (errorLower.includes("timeout") || errorLower.includes("timed out")) {
+    return "Build timeout exceeded";
+  }
+  if (
+    errorLower.includes("module not found") ||
+    errorLower.includes("cannot resolve module")
+  ) {
+    return "Missing dependencies";
+  }
+  if (
+    errorLower.includes("syntax error") ||
+    errorLower.includes("unexpected token")
+  ) {
+    return "Code syntax error";
+  }
+  if (errorLower.includes("out of memory") || errorLower.includes("killed")) {
+    return "Build ran out of memory";
+  }
+
+  // Package manager errors
+  if (errorLower.includes("npm err") || errorLower.includes("yarn error")) {
+    return "Package installation failed";
+  }
+  if (errorLower.includes("lockfile") || errorLower.includes("lock file")) {
+    return "Dependency lock file issue";
+  }
+
+  // File system errors
+  if (
+    errorLower.includes("output directory") &&
+    errorLower.includes("not found")
+  ) {
+    return "Build output directory not found";
+  }
+  if (
+    errorLower.includes("failed to download") ||
+    errorLower.includes("download source")
+  ) {
+    return "Failed to download source code";
+  }
+  if (errorLower.includes("failed to extract") || errorLower.includes("zip")) {
+    return "Failed to extract source files";
+  }
+
+  // Internet Computer deployment errors
+  if (
+    errorLower.includes("error while making call") ||
+    errorLower.includes("fetch failed")
+  ) {
+    return "Deployment to Internet Computer failed";
+  }
+  if (errorLower.includes("cycles") || errorLower.includes("wallet")) {
+    return "Insufficient cycles for deployment";
+  }
+  if (errorLower.includes("canister") && errorLower.includes("not found")) {
+    return "Target canister not found";
+  }
+
+  // Generic fallbacks
+  if (errorLower.includes("failed") || errorLower.includes("error")) {
+    return "Build process failed";
+  }
+
+  return "Unknown error occurred";
+}
+
 // Removed uploadToSupabaseStorage - no longer needed since we deploy directly from local files
 
 async function updateDeploymentStatusDirect(
@@ -552,12 +703,23 @@ async function updateDeploymentStatusDirect(
       .eq("id", deploymentId);
 
     if (error) {
-      console.error(`[DB-UPDATE] Failed to update deployment ${deploymentId} status directly:`, error);
+      console.error(
+        `[DB-UPDATE] Failed to update deployment ${deploymentId} status directly:`,
+        error
+      );
     } else {
-      console.log(`[DB-UPDATE] Updated deployment ${deploymentId} status to ${status} directly`);
+      console.log(
+        `[DB-UPDATE] Updated deployment ${deploymentId} status to ${status} directly`
+      );
     }
   } catch (error) {
-    console.error(`[DB-UPDATE] Error in direct database update for deployment ${deploymentId}:`, error);
-    console.error(`[DB-UPDATE] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+    console.error(
+      `[DB-UPDATE] Error in direct database update for deployment ${deploymentId}:`,
+      error
+    );
+    console.error(
+      `[DB-UPDATE] Error stack:`,
+      error instanceof Error ? error.stack : "No stack"
+    );
   }
 }
