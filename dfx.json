@@ -1,0 +1,11 @@
+{
+  "canisters": {},
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": "mops sources"
+    }
+  },
+  "version": 1,
+  "output_env_file": ".env"
+}
