@@ -1,7 +1,13 @@
 // deno-lint-ignore-file no-sloppy-imports
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { HttpAgent, Actor, ActorSubclass } from "npm:@dfinity/agent";
+import {
+  HttpAgent,
+  Actor,
+  ActorSubclass,
+  Certificate,
+  LookupStatus,
+} from "npm:@dfinity/agent";
 import { Principal } from "npm:@dfinity/principal";
 import { Ed25519KeyIdentity } from "npm:@dfinity/identity";
 import { Secp256k1KeyIdentity } from "npm:@dfinity/identity-secp256k1";
@@ -19,6 +25,7 @@ import {
   init as assetCanisterInit,
 } from "./assetstorage.did.js";
 import type { _SERVICE as ASSET_CANISTER_SERVICE } from "./assetstorage.did.d.ts";
+import { isAssetCanister } from "./constants/knownHashes.ts";
 
 export interface CanisterInfo {
   id: string;
@@ -34,6 +41,8 @@ export interface CanisterInfo {
   moduleHash?: string;
   controllers?: string[];
   frontendUrl?: string;
+  isAssetCanister?: boolean;
+  isSystemController?: boolean;
 }
 
 export interface CreateCanisterResult {
@@ -545,6 +554,77 @@ ${fileList}
     if (error) throw new Error(`Failed to delete canister: ${error.message}`);
   }
 
+  async addController(
+    userId: string,
+    canisterId: string,
+    userPrincipal: string
+  ): Promise<void> {
+    // Verify canister ownership
+    const canister = await this.getCanister(userId, canisterId);
+    if (!canister) {
+      throw new Error("Canister not found or access denied");
+    }
+
+    // Get current canister status
+    const status = await this.managementCanister.canister_status.withOptions({
+      effectiveCanisterId: Principal.fromText(canisterId),
+    })({
+      canister_id: Principal.fromText(canisterId),
+    });
+
+    // Add new controller to existing controllers
+    const currentControllers = status.settings.controllers;
+    const newControllers = [
+      ...currentControllers,
+      Principal.fromText(userPrincipal),
+    ];
+
+    // Update canister settings
+    await this.managementCanister.update_settings.withOptions({
+      effectiveCanisterId: Principal.fromText(canisterId),
+    })({
+      canister_id: Principal.fromText(canisterId),
+      settings: {
+        freezing_threshold: [],
+        controllers: [newControllers],
+        reserved_cycles_limit: [],
+        log_visibility: [],
+        wasm_memory_limit: [],
+        memory_allocation: [],
+        compute_allocation: [],
+        wasm_memory_threshold: [],
+      },
+      sender_canister_version: [],
+    });
+
+    // If asset canister, grant all permissions
+    const moduleHash = status.module_hash[0]
+      ? this.arrayBufferToHex(status.module_hash[0])
+      : "";
+
+    if (isAssetCanister(moduleHash)) {
+      const assetCanister = this.getAssetCanister(
+        Principal.fromText(canisterId)
+      );
+
+      // Grant all permissions: Prepare, ManagePermissions, Commit
+      await assetCanister.grant_permission({
+        permission: { Prepare: null },
+        to_principal: Principal.fromText(userPrincipal),
+      });
+
+      await assetCanister.grant_permission({
+        permission: { ManagePermissions: null },
+        to_principal: Principal.fromText(userPrincipal),
+      });
+
+      await assetCanister.grant_permission({
+        permission: { Commit: null },
+        to_principal: Principal.fromText(userPrincipal),
+      });
+    }
+  }
+
   private async createCanisterInIC(): Promise<string> {
     const result = await this.wallet.wallet_create_canister({
       settings: {
@@ -674,24 +754,42 @@ ${fileList}
   }
 
   private async getCanisterInfoFromIC(canisterId: string) {
-    const status = await this.managementCanister.canister_status.withOptions({
-      effectiveCanisterId: Principal.fromText(canisterId),
-    })({
-      canister_id: Principal.fromText(canisterId),
-    });
+    try {
+      // Try management canister first (for full info including cycles)
+      const status = await this.managementCanister.canister_status.withOptions({
+        effectiveCanisterId: Principal.fromText(canisterId),
+      })({
+        canister_id: Principal.fromText(canisterId),
+      });
 
-    const moduleHash = status.module_hash[0]
-      ? this.arrayBufferToHex(status.module_hash[0])
-      : "Absent";
+      const moduleHash = status.module_hash[0]
+        ? this.arrayBufferToHex(status.module_hash[0])
+        : "Absent";
 
-    return {
-      cycles: status.cycles,
-      wasmBinarySize: status.memory_metrics.wasm_binary_size,
-      moduleHash,
-      controllers: status.settings.controllers.map((p: Principal) =>
-        p.toText()
-      ),
-    };
+      return {
+        cycles: status.cycles,
+        wasmBinarySize: status.memory_metrics.wasm_binary_size,
+        moduleHash,
+        controllers: status.settings.controllers.map((p: Principal) =>
+          p.toText()
+        ),
+      };
+    } catch (error) {
+      console.log(
+        `Management canister call failed, falling back to read state for ${canisterId}:`,
+        error
+      );
+
+      // Fallback to read state (no cycles info, but has moduleHash/controllers)
+      const state = await this.readCanisterState(canisterId);
+
+      return {
+        cycles: null,
+        wasmBinarySize: null,
+        moduleHash: state.moduleHash,
+        controllers: state.controllers,
+      };
+    }
   }
 
   private formatCycles(cycles: bigint): string {
@@ -729,6 +827,82 @@ ${fileList}
       .join("");
   }
 
+  private async readCanisterState(canisterId: string): Promise<{
+    moduleHash: string;
+    controllers: string[];
+  }> {
+    const canisterPrincipal = Principal.fromText(canisterId);
+
+    const moduleHashPath: ArrayBuffer[] = [
+      new TextEncoder().encode("canister").buffer as ArrayBuffer,
+      canisterPrincipal.toUint8Array().buffer as ArrayBuffer,
+      new TextEncoder().encode("module_hash").buffer as ArrayBuffer,
+    ];
+
+    const controllersPath: ArrayBuffer[] = [
+      new TextEncoder().encode("canister").buffer as ArrayBuffer,
+      canisterPrincipal.toUint8Array().buffer as ArrayBuffer,
+      new TextEncoder().encode("controllers").buffer as ArrayBuffer,
+    ];
+
+    const res = await this.agent.readState(canisterId, {
+      paths: [moduleHashPath, controllersPath],
+    });
+
+    const cert = await Certificate.create({
+      certificate: res.certificate,
+      rootKey: await this.agent.fetchRootKey(),
+      canisterId: canisterPrincipal,
+    });
+
+    const data: { moduleHash: string; controllers: string[] } = {
+      moduleHash: "",
+      controllers: [],
+    };
+
+    // Dynamic import for cborg
+    const { decodeFirst } = await import("npm:cborg");
+
+    const moduleHash = cert.lookup(moduleHashPath);
+    if (moduleHash.status === LookupStatus.Found) {
+      const hex = this.arrayBufferToHex(
+        new Uint8Array(moduleHash.value as ArrayBuffer)
+      );
+      data.moduleHash = hex;
+    } else if (moduleHash.status === LookupStatus.Absent) {
+      data.moduleHash = "Absent";
+    } else {
+      console.error(`module_hash LookupStatus: ${moduleHash.status}`, {
+        canisterId,
+      });
+      throw new Error(`module_hash LookupStatus: ${moduleHash.status}`);
+    }
+
+    const controllers = cert.lookup(controllersPath);
+    if (controllers.status === LookupStatus.Found) {
+      const tags = [];
+      tags[55799] = (val: any) => val;
+
+      const [decoded]: [Uint8Array[], Uint8Array] = decodeFirst(
+        new Uint8Array(controllers.value as ArrayBuffer),
+        { tags }
+      );
+
+      const controllersList = decoded.map((buf) =>
+        Principal.fromUint8Array(buf).toText()
+      );
+
+      data.controllers = controllersList;
+    } else {
+      console.error(`controllers LookupStatus: ${controllers.status}`, {
+        canisterId,
+      });
+      throw new Error(`controllers LookupStatus: ${controllers.status}`);
+    }
+
+    return data;
+  }
+
   private mapToCanisterInfo(dbRecord: any, icInfo: any = null): CanisterInfo {
     const baseInfo: CanisterInfo = {
       id: dbRecord.id,
@@ -744,13 +918,20 @@ ${fileList}
     };
 
     if (icInfo) {
-      baseInfo.cyclesBalance = this.formatCycles(icInfo.cycles);
-      baseInfo.cyclesBalanceRaw = icInfo.cycles;
-      baseInfo.wasmBinarySize = icInfo.wasmBinarySize
-        ? this.formatBytes(icInfo.wasmBinarySize)
-        : undefined;
+      if (icInfo.cycles !== null) {
+        baseInfo.cyclesBalance = this.formatCycles(icInfo.cycles);
+        baseInfo.cyclesBalanceRaw = icInfo.cycles;
+      }
+
+      if (icInfo.wasmBinarySize !== null) {
+        baseInfo.wasmBinarySize = this.formatBytes(icInfo.wasmBinarySize);
+      }
+
       baseInfo.moduleHash = icInfo.moduleHash;
       baseInfo.controllers = icInfo.controllers;
+      baseInfo.isAssetCanister = isAssetCanister(icInfo.moduleHash || "");
+      baseInfo.isSystemController =
+        icInfo.controllers?.includes(this.principal.toText()) || false;
     }
 
     return baseInfo;

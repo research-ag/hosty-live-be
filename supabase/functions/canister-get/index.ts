@@ -16,6 +16,8 @@ interface CanisterDetailInfo {
   wasmBinarySize?: string;
   moduleHash?: string;
   controllers?: string[];
+  isAssetCanister?: boolean;
+  isSystemController?: boolean;
 }
 
 interface GetCanisterResponse {
@@ -84,7 +86,10 @@ Deno.serve(async (req) => {
     );
 
     const jwt = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser(jwt);
 
     if (authError || !user) {
       return new Response(
@@ -130,6 +135,8 @@ Deno.serve(async (req) => {
       wasmBinarySize: canister.wasmBinarySize,
       moduleHash: canister.moduleHash,
       controllers: canister.controllers,
+      isAssetCanister: canister.isAssetCanister,
+      isSystemController: canister.isSystemController,
     };
 
     console.log(`Retrieved canister ${canisterId} for user ${user.id}`);

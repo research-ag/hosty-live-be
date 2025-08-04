@@ -609,7 +609,42 @@
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canisters-list",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canisters-list"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"canisters\": [\n      {\n        \"id\": \"bd59a6dc-0a03-42ea-b2d3-bc785d7fb21c\",\n        \"userId\": \"12345678-1234-1234-1234-123456789abc\",\n        \"icCanisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n        \"deleted\": false,\n        \"createdAt\": \"2024-01-15T10:30:00.000Z\",\n        \"updatedAt\": \"2024-01-15T10:30:00.000Z\",\n        \"frontendUrl\": \"https://rdmx6-jaaaa-aaaaa-aaadq-cai.icp0.io/\",\n        \"cyclesBalance\": \"1T\",\n        \"cyclesBalanceRaw\": \"1000000000000\",\n        \"wasmBinarySize\": \"2 MB\",\n        \"moduleHash\": \"a29f0846ddf65e8a720826a9511b55017c452088f85c57b5ed99ff8510c07272\",\n        \"controllers\": [\n          \"xlmdg-vkosz-cckqz-v2vpr-f3g55-zvhvo-eag3u-dfdqe-a7cqd-5txaj-uae\"\n        ],\n        \"isAssetCanister\": true,\n        \"isSystemController\": true\n      }\n    ],\n    \"totalCount\": 1\n  }\n}"
+            }
+          ]
         },
         {
           "name": "Get Canister Details",
@@ -640,7 +675,90 @@
               ]
             }
           },
-          "response": []
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-get?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-get"
+                  ],
+                  "query": [
+                    {
+                      "key": "canisterId",
+                      "value": "rdmx6-jaaaa-aaaaa-aaadq-cai",
+                      "description": "IC canister ID (e.g., rdmx6-jaaaa-aaaaa-aaadq-cai)"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": \"bd59a6dc-0a03-42ea-b2d3-bc785d7fb21c\",\n    \"userId\": \"12345678-1234-1234-1234-123456789abc\",\n    \"icCanisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n    \"deleted\": false,\n    \"createdAt\": \"2024-01-15T10:30:00.000Z\",\n    \"updatedAt\": \"2024-01-15T10:30:00.000Z\",\n    \"frontendUrl\": \"https://rdmx6-jaaaa-aaaaa-aaadq-cai.icp0.io/\",\n    \"cyclesBalance\": \"1T\",\n    \"cyclesBalanceRaw\": \"1000000000000\",\n    \"wasmBinarySize\": \"2 MB\",\n    \"moduleHash\": \"a29f0846ddf65e8a720826a9511b55017c452088f85c57b5ed99ff8510c07272\",\n    \"controllers\": [\n      \"xlmdg-vkosz-cckqz-v2vpr-f3g55-zvhvo-eag3u-dfdqe-a7cqd-5txaj-uae\"\n    ],\n    \"isAssetCanister\": true,\n    \"isSystemController\": true\n  }\n}"
+            },
+            {
+              "name": "Canister Not Found",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-get?canisterId=invalid-canister-id",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-get"
+                  ],
+                  "query": [
+                    {
+                      "key": "canisterId",
+                      "value": "invalid-canister-id",
+                      "description": "IC canister ID (e.g., rdmx6-jaaaa-aaaaa-aaadq-cai)"
+                    }
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Canister not found\"\n}"
+            }
+          ]
         },
         {
           "name": "Delete Canister",
@@ -672,6 +790,165 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "Add Controller",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"canisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n  \"userPrincipal\": \"xlmdg-vkosz-cckqz-v2vpr-f3g55-zvhvo-eag3u-dfdqe-a7cqd-5txaj-uae\"\n}"
+            },
+            "url": {
+              "raw": "{{supabase_url}}/functions/v1/canister-add-controller",
+              "host": [
+                "{{supabase_url}}"
+              ],
+              "path": [
+                "functions",
+                "v1",
+                "canister-add-controller"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Success Response",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"canisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n  \"userPrincipal\": \"xlmdg-vkosz-cckqz-v2vpr-f3g55-zvhvo-eag3u-dfdqe-a7cqd-5txaj-uae\"\n}"
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-add-controller",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-add-controller"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": true\n}"
+            },
+            {
+              "name": "Invalid Principal Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"canisterId\": \"rdmx6-jaaaa-aaaaa-aaadq-cai\",\n  \"userPrincipal\": \"invalid-principal\"\n}"
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-add-controller",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-add-controller"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Invalid principal format\"\n}"
+            },
+            {
+              "name": "Canister Not Found Error",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"canisterId\": \"invalid-canister-id\",\n  \"userPrincipal\": \"xlmdg-vkosz-cckqz-v2vpr-f3g55-zvhvo-eag3u-dfdqe-a7cqd-5txaj-uae\"\n}"
+                },
+                "url": {
+                  "raw": "{{supabase_url}}/functions/v1/canister-add-controller",
+                  "host": [
+                    "{{supabase_url}}"
+                  ],
+                  "path": [
+                    "functions",
+                    "v1",
+                    "canister-add-controller"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"success\": false,\n  \"error\": \"Canister not found or access denied\"\n}"
+            }
+          ]
         }
       ],
       "description": "Internet Computer canister lifecycle management (requires cycles for creation)"

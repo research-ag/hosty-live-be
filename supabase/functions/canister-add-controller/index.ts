@@ -2,30 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ICService } from "../_shared/ic-service.ts";
 
-interface CanisterInfo {
-  id: string;
-  userId: string;
-  icCanisterId: string;
-  deleted: boolean;
-  deletedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  frontendUrl: string;
-  cyclesBalance?: string;
-  cyclesBalanceRaw?: string;
-  wasmBinarySize?: string;
-  moduleHash?: string;
-  controllers?: string[];
-  isAssetCanister?: boolean;
-  isSystemController?: boolean;
+interface AddControllerRequest {
+  canisterId: string;
+  userPrincipal: string;
 }
 
-interface ListCanistersResponse {
+interface AddControllerResponse {
   success: boolean;
-  data?: {
-    canisters: CanisterInfo[];
-    totalCount: number;
-  };
   error?: string;
 }
 
@@ -34,7 +17,7 @@ Deno.serve(async (req) => {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
       "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
   };
 
   // Handle CORS preflight
@@ -46,7 +29,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (req.method !== "GET") {
+    if (req.method !== "POST") {
       return new Response("Method not allowed", {
         status: 405,
         headers: corsHeaders,
@@ -59,7 +42,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: false,
           error: "Missing authorization header",
-        } as ListCanistersResponse),
+        } as AddControllerResponse),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -83,7 +66,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: false,
           error: "Invalid or expired token",
-        } as ListCanistersResponse),
+        } as AddControllerResponse),
         {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -91,38 +74,50 @@ Deno.serve(async (req) => {
       );
     }
 
-    const icService = new ICService();
-    const canisters = await icService.getUserCanisters(user.id);
+    const requestBody: AddControllerRequest = await req.json();
+    const { canisterId, userPrincipal } = requestBody;
 
-    const canisterInfos: CanisterInfo[] = canisters.map((canister) => ({
-      id: canister.id,
-      userId: canister.userId,
-      icCanisterId: canister.icCanisterId,
-      deleted: canister.deleted,
-      deletedAt: canister.deletedAt?.toISOString(),
-      createdAt: canister.createdAt.toISOString(),
-      updatedAt: canister.updatedAt.toISOString(),
-      frontendUrl:
-        canister.frontendUrl || `https://${canister.icCanisterId}.icp0.io/`,
-      cyclesBalance: canister.cyclesBalance,
-      cyclesBalanceRaw: canister.cyclesBalanceRaw?.toString(),
-      wasmBinarySize: canister.wasmBinarySize,
-      moduleHash: canister.moduleHash,
-      controllers: canister.controllers,
-      isAssetCanister: canister.isAssetCanister,
-      isSystemController: canister.isSystemController,
-    }));
+    if (!canisterId || !userPrincipal) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "canisterId and userPrincipal are required",
+        } as AddControllerResponse),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    // Validate principal format
+    try {
+      // Basic validation - IC principals are typically 63 characters with dashes
+      if (!/^[a-z0-9-]{27,63}$/.test(userPrincipal)) {
+        throw new Error("Invalid principal format");
+      }
+    } catch {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid principal format",
+        } as AddControllerResponse),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    const icService = new ICService();
+    await icService.addController(user.id, canisterId, userPrincipal);
 
     console.log(
-      `Retrieved ${canisterInfos.length} canisters for user ${user.id}`
+      `Added controller ${userPrincipal} to canister ${canisterId} for user ${user.id}`
     );
 
-    const response: ListCanistersResponse = {
+    const response: AddControllerResponse = {
       success: true,
-      data: {
-        canisters: canisterInfos,
-        totalCount: canisterInfos.length,
-      },
     };
 
     return new Response(JSON.stringify(response), {
@@ -130,11 +125,11 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error fetching canisters:", error);
+    console.error("Error adding controller:", error);
 
-    const response: ListCanistersResponse = {
+    const response: AddControllerResponse = {
       success: false,
-      error: (error as Error)?.message || "Failed to fetch canisters",
+      error: (error as Error)?.message || "Failed to add controller",
     };
 
     return new Response(JSON.stringify(response), {
