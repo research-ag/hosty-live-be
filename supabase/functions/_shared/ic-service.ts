@@ -6,7 +6,7 @@ import {
   Actor,
   ActorSubclass,
   Certificate,
-  LookupStatus,
+
 } from "npm:@dfinity/agent";
 import { Principal } from "npm:@dfinity/principal";
 import { Ed25519KeyIdentity } from "npm:@dfinity/identity";
@@ -864,12 +864,12 @@ ${fileList}
     const { decodeFirst } = await import("npm:cborg");
 
     const moduleHash = cert.lookup(moduleHashPath);
-    if (moduleHash.status === LookupStatus.Found) {
+    if (moduleHash.status === "found") {
       const hex = this.arrayBufferToHex(
         new Uint8Array(moduleHash.value as ArrayBuffer)
       );
       data.moduleHash = hex;
-    } else if (moduleHash.status === LookupStatus.Absent) {
+    } else if (moduleHash.status === "absent") {
       data.moduleHash = "Absent";
     } else {
       console.error(`module_hash LookupStatus: ${moduleHash.status}`, {
@@ -879,7 +879,7 @@ ${fileList}
     }
 
     const controllers = cert.lookup(controllersPath);
-    if (controllers.status === LookupStatus.Found) {
+    if (controllers.status === "found") {
       const tags = [];
       tags[55799] = (val: any) => val;
 
