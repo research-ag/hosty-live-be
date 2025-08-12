@@ -6,7 +6,6 @@ import {
   Actor,
   ActorSubclass,
   Certificate,
-
 } from "npm:@dfinity/agent";
 import { Principal } from "npm:@dfinity/principal";
 import { Ed25519KeyIdentity } from "npm:@dfinity/identity";
@@ -511,7 +510,13 @@ ${fileList}
             canister.ic_canister_id as string
           );
           return this.mapToCanisterInfo(canister, icInfo);
-        } catch {
+        } catch (error) {
+          console.log(
+            `getCanisterInfoFromIC failed for ${
+              canister.ic_canister_id as string
+            }:`,
+            error
+          );
           return this.mapToCanisterInfo(canister, null);
         }
       })
@@ -535,7 +540,8 @@ ${fileList}
     try {
       const icInfo = await this.getCanisterInfoFromIC(canisterId);
       return this.mapToCanisterInfo(canister, icInfo);
-    } catch {
+    } catch (error) {
+      console.log(`getCanisterInfoFromIC failed for ${canisterId}:`, error);
       return this.mapToCanisterInfo(canister, null);
     }
   }
@@ -845,13 +851,19 @@ ${fileList}
       new TextEncoder().encode("controllers").buffer as ArrayBuffer,
     ];
 
-    const res = await this.agent.readState(canisterId, {
+    // Create anonymous agent for read state (no signature required)
+    const readAgent = HttpAgent.createSync({
+      fetch: globalThis.fetch,
+      host: "https://ic0.app",
+    });
+
+    const res = await readAgent.readState(canisterId, {
       paths: [moduleHashPath, controllersPath],
     });
 
     const cert = await Certificate.create({
       certificate: res.certificate,
-      rootKey: await this.agent.fetchRootKey(),
+      rootKey: await readAgent.fetchRootKey(),
       canisterId: canisterPrincipal,
     });
 
