@@ -6,12 +6,12 @@ import {
   Actor,
   ActorSubclass,
   Certificate,
-} from "npm:@dfinity/agent";
-import { Principal } from "npm:@dfinity/principal";
-import { Ed25519KeyIdentity } from "npm:@dfinity/identity";
-import { Secp256k1KeyIdentity } from "npm:@dfinity/identity-secp256k1";
-import { IDL } from "npm:@dfinity/candid";
-import { AssetManager } from "npm:@dfinity/assets";
+} from "npm:@dfinity/agent@2.4.1";
+import { Principal } from "npm:@dfinity/principal@2.4.1";
+import { Ed25519KeyIdentity } from "npm:@dfinity/identity@2.4.1";
+import { Secp256k1KeyIdentity } from "npm:@dfinity/identity-secp256k1@2.4.1";
+import { IDL } from "npm:@dfinity/candid@2.4.1";
+import { AssetManager } from "npm:@dfinity/assets@2.4.1";
 import * as pemfile from "npm:pem-file";
 import { ZipReader, BlobWriter } from "https://deno.land/x/zipjs/index.js";
 
