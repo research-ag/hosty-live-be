@@ -631,6 +631,61 @@ ${fileList}
     }
   }
 
+  async configureDomain(
+    userId: string,
+    canisterId: string,
+    domain: string,
+    skipUpload?: boolean
+  ): Promise<string> {
+    // Verify canister ownership
+    const canister = await this.getCanister(userId, canisterId);
+    if (!canister) {
+      throw new Error("Canister not found or access denied");
+    }
+
+    // Upload .well-known/ic-domains file (unless skipped)
+    if (!skipUpload) {
+      const assetManager = new AssetManager({
+        canisterId: Principal.fromText(canisterId),
+        agent: this.agent,
+      });
+
+      const batch = assetManager.batch();
+      await batch.store(new TextEncoder().encode(domain), {
+        fileName: "/.well-known/ic-domains",
+        contentType: "text/plain",
+        contentEncoding: "identity",
+      });
+
+      await batch.commit();
+      console.log(`Uploaded ic-domains file for ${domain}`);
+    }
+
+    // Register domain with IC gateways
+    const response = await fetch("https://icp0.io/registrations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: domain }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Domain registration failed: ${error}`);
+    }
+
+    const result = await response.json();
+    console.log(`Domain ${domain} registration started with ID: ${result.id}`);
+
+    // Update canister with domain request ID
+    await this.supabase
+      .from("canisters")
+      .update({ domain_request_id: result.id })
+      .eq("ic_canister_id", canisterId)
+      .eq("user_id", userId);
+
+    return result.id;
+  }
+
   private async createCanisterInIC(): Promise<string> {
     const result = await this.wallet.wallet_create_canister({
       settings: {
