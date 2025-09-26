@@ -650,14 +650,13 @@ ${fileList}
         agent: this.agent,
       });
 
-      const batch = assetManager.batch();
-      await batch.store(new TextEncoder().encode(domain), {
-        fileName: "/.well-known/ic-domains",
+      await assetManager.delete("/.well-known/ic-domains");
+
+      await assetManager.store(new TextEncoder().encode(domain), {
+        fileName: ".well-known/ic-domains",
         contentType: "text/plain",
         contentEncoding: "identity",
       });
-
-      await batch.commit();
       console.log(`Uploaded ic-domains file for ${domain}`);
     }
 
