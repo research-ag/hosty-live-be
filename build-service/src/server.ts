@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { processDeployment, processGitDeployment } from "./builder";
+import { executeDnsQueries } from "./dns-query";
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -140,6 +141,44 @@ app.post("/build-git", async (req, res) => {
     console.error("Git build endpoint error:", error);
     res.status(500).json({
       success: false,
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+});
+
+// DNS query endpoint
+app.post("/dns-query", async (req, res) => {
+  try {
+    const { queries } = req.body;
+
+    // Validate required fields
+    if (!queries || !Array.isArray(queries)) {
+      return res.status(400).json({
+        error: "Missing required field: queries (array)",
+      });
+    }
+
+    // Validate authorization
+    const authHeader = req.headers.authorization;
+    const expectedToken = process.env.BUILD_SERVICE_TOKEN || "default-token";
+
+    if (
+      !authHeader ||
+      !authHeader.startsWith("Bearer ") ||
+      authHeader.slice(7) !== expectedToken
+    ) {
+      return res.status(401).json({
+        error: "Unauthorized",
+      });
+    }
+
+    // Execute DNS queries
+    const results = await executeDnsQueries(queries);
+
+    res.json({ results });
+  } catch (error) {
+    console.error("DNS query endpoint error:", error);
+    res.status(500).json({
       error: error instanceof Error ? error.message : "Internal server error",
     });
   }

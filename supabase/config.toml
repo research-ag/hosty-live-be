@@ -376,3 +376,8 @@ entrypoint = "./functions/deployments-list/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/upload-deployment-git/index.ts"
+
+[functions.dns-query]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/dns-query/index.ts"

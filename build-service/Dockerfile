@@ -8,7 +8,8 @@ RUN apk add --no-cache \
     make \
     g++ \
     bash \
-    curl
+    curl \
+    bind-tools
 
 # Install global package managers
 RUN npm install -g pnpm
