@@ -686,13 +686,17 @@ ${fileList}
   }
 
   private async createCanisterInIC(): Promise<string> {
+    const blackholedCanister = Principal.fromText(
+      "3jolg-2yaaa-aaaao-a4p3a-cai"
+    );
+
     const result = await this.wallet.wallet_create_canister({
       settings: {
         compute_allocation: [],
         freezing_threshold: [],
         memory_allocation: [],
         controller: [],
-        controllers: [[this.principal]],
+        controllers: [[this.principal, blackholedCanister]],
       },
       cycles: 840_000_000_000n,
     });
