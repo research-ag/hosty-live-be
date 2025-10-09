@@ -319,14 +319,8 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.profile]
 enabled = true
-verify_jwt = true
-# import_map = "./functions/profile/deno.json"
-# Uncomment to specify a custom file path to the entrypoint.
-# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+verify_jwt = false
 entrypoint = "./functions/profile/index.ts"
-# Specifies static files to be bundled with the function. Supports glob patterns.
-# For example, if you want to serve static HTML pages in your function:
-# static_files = [ "./functions/profile/*.html" ]
 
 [functions.canister-create]
 enabled = true
@@ -381,3 +375,28 @@ entrypoint = "./functions/upload-deployment-git/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/dns-query/index.ts"
+
+[functions.auth-ii]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/auth-ii/index.ts"
+
+[functions.cycles]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/cycles/index.ts"
+
+[functions.faucet]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/faucet/index.ts"
+
+[functions.canister-add-controller]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/canister-add-controller/index.ts"
+
+[functions.canister-add-domain]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/canister-add-domain/index.ts"

@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { getUserFromRequest } from "../_shared/auth.ts";
 import { ICService } from "../_shared/ic-service.ts";
 
 interface DeleteCanisterRequest {
@@ -34,12 +34,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const authHeader = req.headers.get("authorization");
-    if (!authHeader) {
+    const user = await getUserFromRequest(req);
+    if (!user) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: "Missing authorization header",
+          error: "Unauthorized",
         } as DeleteCanisterResponse),
         {
           status: 401,
@@ -58,30 +58,6 @@ Deno.serve(async (req) => {
         } as DeleteCanisterResponse),
         {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const jwt = authHeader.replace("Bearer ", "");
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(jwt);
-
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Invalid or expired token",
-        } as DeleteCanisterResponse),
-        {
-          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );

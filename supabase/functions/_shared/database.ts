@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { DeploymentRecord, DeploymentStatus, CanisterRecord } from "./types.ts";
+import { getUserFromRequest as getAuthUser } from "./auth.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -181,19 +182,112 @@ export async function verifyCanisterOwnership(
   return !!data;
 }
 
-// Utility functions
+// Utility functions - re-export from auth.ts
 export async function getUserFromRequest(
   request: Request
-): Promise<{ id: string } | null> {
-  const authHeader = request.headers.get("Authorization");
-  if (!authHeader) return null;
+): Promise<{ id: string; principal?: string } | null> {
+  return await getAuthUser(request);
+}
 
-  const token = authHeader.replace("Bearer ", "");
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
+// Profile operations
+export async function getUserProfile(userId: string) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("id, username, principal, faucet_used_at, cycles_balance, created_at, updated_at")
+    .eq("id", userId)
+    .single();
 
-  if (error || !user) return null;
-  return { id: user.id };
+  if (error) {
+    throw new Error(`Failed to fetch profile: ${error.message}`);
+  }
+
+  return profile;
+}
+
+export async function updateUserProfile(userId: string, updates: { username?: string }) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", userId)
+    .select("id, username, principal, faucet_used_at, cycles_balance, created_at, updated_at")
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update profile: ${error.message}`);
+  }
+
+  return profile;
+}
+
+// Cycles operations
+export async function getUserCyclesBalance(userId: string) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("cycles_balance")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to fetch cycles balance: ${error.message}`);
+  }
+
+  return BigInt(profile.cycles_balance);
+}
+
+// Faucet operations
+export async function getFaucetStatus(userId: string) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("faucet_used_at, cycles_balance")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to fetch faucet status: ${error.message}`);
+  }
+
+  return {
+    faucetUsedAt: profile.faucet_used_at,
+    cyclesBalance: profile.cycles_balance,
+  };
+}
+
+export async function useFaucet(userId: string, faucetAmount: bigint) {
+  // Get current profile
+  const { data: profile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("faucet_used_at, cycles_balance")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError) {
+    throw new Error(`Failed to fetch profile: ${fetchError.message}`);
+  }
+
+  if (!profile) {
+    throw new Error("Profile not found");
+  }
+
+  // Update profile with new cycles and faucet usage timestamp
+  const newBalance = BigInt(profile.cycles_balance) + faucetAmount;
+  const now = new Date();
+
+  const { data: updatedProfile, error: updateError } = await supabase
+    .from("profiles")
+    .update({
+      cycles_balance: newBalance.toString(),
+      faucet_used_at: now.toISOString(),
+    })
+    .eq("id", userId)
+    .select("cycles_balance, faucet_used_at")
+    .single();
+
+  if (updateError) {
+    throw new Error(`Failed to update profile: ${updateError.message}`);
+  }
+
+  return {
+    newBalance: updatedProfile.cycles_balance,
+    faucetUsedAt: updatedProfile.faucet_used_at,
+  };
 }

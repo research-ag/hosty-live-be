@@ -1,11 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  getUserFromRequest,
   verifyCanisterOwnership,
   createDeployment,
   updateDeploymentStatus,
 } from "../_shared/database.ts";
+import { getUserFromRequest } from "../_shared/auth.ts";
 import { BuildServiceRequest } from "../_shared/types.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
