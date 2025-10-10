@@ -405,7 +405,13 @@ ${fileList}
     return mimeTypes[ext || ""] || "application/octet-stream";
   }
 
-  async createCanister(userId: string): Promise<CreateCanisterResult> {
+  async createCanister(
+    userId: string,
+    canisterId: string
+  ): Promise<CreateCanisterResult> {
+    // Verify mandatory controllers are set
+    await this.verifyMandatoryControllers(canisterId);
+
     // Get existing canister count
     const { data: existingCanisters } = await this.supabase
       .from("canisters")
@@ -414,9 +420,6 @@ ${fileList}
       .eq("deleted", false);
 
     const canisterNumber = (existingCanisters?.length || 0) + 1;
-
-    // Create canister on IC (user pays with their own wallet)
-    const canisterId = await this.createCanisterInIC();
 
     // Save canister to database
     const { data: canister, error } = await this.supabase
@@ -444,6 +447,47 @@ ${fileList}
     };
   }
 
+  private async verifyMandatoryControllers(canisterId: string): Promise<void> {
+    const MANDATORY_CONTROLLERS: string[] = [
+      this.principal.toText(),
+      "3jolg-2yaaa-aaaao-a4p3a-cai",
+    ];
+
+    try {
+      // Get canister controllers using read state
+      const state = await this.readCanisterState(canisterId);
+      const controllers = state.controllers;
+
+      // Check if all mandatory controllers are present
+      const missingControllers = MANDATORY_CONTROLLERS.filter(
+        (required) => !controllers.includes(required)
+      );
+
+      if (missingControllers.length > 0) {
+        throw new Error(
+          `Missing required controllers: ${missingControllers.join(", ")}. ` +
+            `Please add both mandatory controllers before registering the canister.`
+        );
+      }
+
+      console.log(
+        `✅ Verified all mandatory controllers for canister ${canisterId}`
+      );
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Missing required")
+      ) {
+        throw error;
+      }
+      throw new Error(
+        `Failed to verify canister controllers: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
   async createFreeCanister(userId: string): Promise<CreateCanisterResult> {
     // Check if user has already claimed free canister
     const { data: profile, error: profileError } = await this.supabase
@@ -462,7 +506,9 @@ ${fileList}
 
     if (profile.free_canister_claimed_at) {
       throw new Error(
-        `Free canister already claimed on ${new Date(profile.free_canister_claimed_at).toISOString()}`
+        `Free canister already claimed on ${new Date(
+          profile.free_canister_claimed_at
+        ).toISOString()}`
       );
     }
 
@@ -480,7 +526,9 @@ ${fileList}
     try {
       canisterId = await this.createCanisterInIC();
     } catch (error) {
-      throw new Error(`Failed to create canister on IC: ${(error as Error).message}`);
+      throw new Error(
+        `Failed to create canister on IC: ${(error as Error).message}`
+      );
     }
 
     // Save canister to database

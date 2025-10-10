@@ -49,11 +49,28 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Parse request body to get canisterId
+    const body = await req.json();
+    const { canisterId } = body;
+
+    if (!canisterId || typeof canisterId !== "string") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "canisterId is required and must be a string",
+        } as CreateCanisterResponse),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
     const icService = new ICService();
-    const result = await icService.createCanister(user.id);
+    const result = await icService.createCanister(user.id, canisterId);
 
     console.log(
-      `Created canister ${result.canister.icCanisterId} for user ${user.id}`
+      `Registered canister ${result.canister.icCanisterId} for user ${user.id}`
     );
 
     const response: CreateCanisterResponse = {
@@ -70,11 +87,11 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error creating canister:", error);
+    console.error("Error registering canister:", error);
 
     const response: CreateCanisterResponse = {
       success: false,
-      error: (error as Error)?.message || "Failed to create canister",
+      error: (error as Error)?.message || "Failed to register canister",
     };
 
     return new Response(JSON.stringify(response), {
