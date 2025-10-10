@@ -5,18 +5,23 @@
  */
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { create, verify, getNumericDate } from "https://deno.land/x/djwt@v3.0.1/mod.ts";
+import {
+  create,
+  verify,
+  getNumericDate,
+} from "https://deno.land/x/djwt@v3.0.1/mod.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const jwtSecret = Deno.env.get("JWT_SECRET") || "default-jwt-secret-change-in-production";
+const jwtSecret =
+  Deno.env.get("JWT_SECRET") || "default-jwt-secret-change-in-production";
 
 // Create Supabase client at module level to avoid request context interference
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 export interface AuthUser {
-  id: string;           // Profile UUID (for DB queries)
-  principal?: string;   // II principal (if using II auth)
+  id: string; // Profile UUID (for DB queries)
+  principal?: string; // II principal (if using II auth)
 }
 
 /**
@@ -39,7 +44,7 @@ export async function generateTokens(principal: string): Promise<{
     {
       principal,
       type: "access",
-      exp: getNumericDate(60 * 60), // 1 hour
+      exp: getNumericDate(60 * 60 * 24 * 365 * 10), // 10 years (temporary)
     },
     key
   );
@@ -49,7 +54,7 @@ export async function generateTokens(principal: string): Promise<{
     {
       principal,
       type: "refresh",
-      exp: getNumericDate(60 * 60 * 24 * 7), // 7 days
+      exp: getNumericDate(60 * 60 * 24 * 365 * 10), // 10 years (temporary)
     },
     key
   );
@@ -71,7 +76,7 @@ async function validateCustomToken(token: string): Promise<string | null> {
     );
 
     const payload = await verify(token, key);
-    
+
     // Check if token is expired
     if (payload.exp && payload.exp < Date.now() / 1000) {
       return null;
@@ -143,7 +148,10 @@ interface ProfileData {
  */
 export async function getOrCreateUserByPrincipal(
   principal: string
-): Promise<{ profile: ProfileData; tokens: { accessToken: string; refreshToken: string } }> {
+): Promise<{
+  profile: ProfileData;
+  tokens: { accessToken: string; refreshToken: string };
+}> {
   // Check if user already exists
   const { data: existingProfile, error: lookupError } = await supabase
     .from("profiles")
@@ -170,7 +178,9 @@ export async function getOrCreateUserByPrincipal(
     .single();
 
   if (createError || !newProfile) {
-    throw new Error(`Failed to create profile: ${createError?.message || "Unknown error"}`);
+    throw new Error(
+      `Failed to create profile: ${createError?.message || "Unknown error"}`
+    );
   }
 
   // Generate tokens for new user
@@ -181,4 +191,3 @@ export async function getOrCreateUserByPrincipal(
     tokens,
   };
 }
-
