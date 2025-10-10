@@ -381,16 +381,6 @@ enabled = true
 verify_jwt = false
 entrypoint = "./functions/auth-ii/index.ts"
 
-[functions.cycles]
-enabled = true
-verify_jwt = false
-entrypoint = "./functions/cycles/index.ts"
-
-[functions.faucet]
-enabled = true
-verify_jwt = false
-entrypoint = "./functions/faucet/index.ts"
-
 [functions.canister-add-controller]
 enabled = true
 verify_jwt = false
@@ -400,3 +390,8 @@ entrypoint = "./functions/canister-add-controller/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/canister-add-domain/index.ts"
+
+[functions.canister-claim-free]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/canister-claim-free/index.ts"

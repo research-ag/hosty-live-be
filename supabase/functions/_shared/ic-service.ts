@@ -406,12 +406,49 @@ ${fileList}
   }
 
   async createCanister(userId: string): Promise<CreateCanisterResult> {
-    const CANISTER_CREATION_COST = 800_000_000_000n; // 0.8 TC
+    // Get existing canister count
+    const { data: existingCanisters } = await this.supabase
+      .from("canisters")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("deleted", false);
 
-    // Check user's cycles balance first
+    const canisterNumber = (existingCanisters?.length || 0) + 1;
+
+    // Create canister on IC (user pays with their own wallet)
+    const canisterId = await this.createCanisterInIC();
+
+    // Save canister to database
+    const { data: canister, error } = await this.supabase
+      .from("canisters")
+      .insert({
+        user_id: userId,
+        ic_canister_id: canisterId,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to save canister: ${error.message}`);
+    }
+
+    return {
+      canister: {
+        id: canister.id as string,
+        userId: canister.user_id as string,
+        icCanisterId: canister.ic_canister_id as string,
+        createdAt: new Date(canister.created_at as string),
+        updatedAt: new Date(canister.updated_at as string),
+      },
+      canisterNumber,
+    };
+  }
+
+  async createFreeCanister(userId: string): Promise<CreateCanisterResult> {
+    // Check if user has already claimed free canister
     const { data: profile, error: profileError } = await this.supabase
       .from("profiles")
-      .select("cycles_balance")
+      .select("free_canister_claimed_at")
       .eq("id", userId)
       .single();
 
@@ -423,13 +460,13 @@ ${fileList}
       throw new Error("User profile not found");
     }
 
-    const currentBalance = BigInt(profile.cycles_balance);
-    if (currentBalance < CANISTER_CREATION_COST) {
+    if (profile.free_canister_claimed_at) {
       throw new Error(
-        `Insufficient cycles. Required: ${CANISTER_CREATION_COST.toString()}, Available: ${currentBalance.toString()}`
+        `Free canister already claimed on ${new Date(profile.free_canister_claimed_at).toISOString()}`
       );
     }
 
+    // Get existing canister count
     const { data: existingCanisters } = await this.supabase
       .from("canisters")
       .select("id")
@@ -438,31 +475,16 @@ ${fileList}
 
     const canisterNumber = (existingCanisters?.length || 0) + 1;
 
-    // Deduct cycles from user balance
-    const newBalance = currentBalance - CANISTER_CREATION_COST;
-    const { error: balanceUpdateError } = await this.supabase
-      .from("profiles")
-      .update({ cycles_balance: newBalance.toString() })
-      .eq("id", userId);
-
-    if (balanceUpdateError) {
-      throw new Error(`Failed to deduct cycles: ${balanceUpdateError.message}`);
-    }
-
+    // Create canister on IC (backend pays)
     let canisterId: string;
     try {
       canisterId = await this.createCanisterInIC();
     } catch (error) {
-      // Rollback: refund the cycles if canister creation fails
-      await this.supabase
-        .from("profiles")
-        .update({ cycles_balance: currentBalance.toString() })
-        .eq("id", userId);
-
-      throw error;
+      throw new Error(`Failed to create canister on IC: ${(error as Error).message}`);
     }
 
-    const { data: canister, error } = await this.supabase
+    // Save canister to database
+    const { data: canister, error: canisterError } = await this.supabase
       .from("canisters")
       .insert({
         user_id: userId,
@@ -471,14 +493,19 @@ ${fileList}
       .select()
       .single();
 
-    if (error) {
-      // Rollback: refund the cycles if database insert fails
-      await this.supabase
-        .from("profiles")
-        .update({ cycles_balance: currentBalance.toString() })
-        .eq("id", userId);
+    if (canisterError) {
+      throw new Error(`Failed to save canister: ${canisterError.message}`);
+    }
 
-      throw new Error(`Failed to save canister: ${error.message}`);
+    // Update user profile to mark free canister as claimed
+    const { error: updateError } = await this.supabase
+      .from("profiles")
+      .update({ free_canister_claimed_at: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (updateError) {
+      console.error("Failed to update free_canister_claimed_at:", updateError);
+      // Don't fail the request, canister is already created
     }
 
     return {

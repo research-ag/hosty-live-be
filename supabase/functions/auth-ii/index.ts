@@ -19,8 +19,7 @@ interface AuthIIResponse {
   profile?: {
     id: string;
     principal: string;
-    cyclesBalance: string;
-    faucetUsedAt: string | null;
+    freeCanisterClaimedAt: string | null;
     createdAt: string;
     updatedAt: string;
   };
@@ -92,8 +91,7 @@ Deno.serve(async (req) => {
       profile: {
         id: profile.id,
         principal: profile.principal,
-        cyclesBalance: profile.cycles_balance,
-        faucetUsedAt: profile.faucet_used_at,
+        freeCanisterClaimedAt: profile.free_canister_claimed_at,
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
       },

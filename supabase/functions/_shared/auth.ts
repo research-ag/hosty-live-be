@@ -132,8 +132,7 @@ export async function getUserFromRequest(
 interface ProfileData {
   id: string;
   principal: string;
-  cycles_balance: string;
-  faucet_used_at: string | null;
+  free_canister_claimed_at: string | null;
   created_at: string;
   updated_at: string;
   username?: string;
@@ -166,7 +165,6 @@ export async function getOrCreateUserByPrincipal(
     .from("profiles")
     .insert({
       principal,
-      cycles_balance: "0",
     })
     .select()
     .single();

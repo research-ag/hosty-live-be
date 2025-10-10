@@ -63,8 +63,7 @@ async function handleGetProfile(userId: string) {
       id: profile.id,
       username: profile.username,
       principal: profile.principal,
-      faucetUsedAt: profile.faucet_used_at,
-      cyclesBalance: profile.cycles_balance,
+      freeCanisterClaimedAt: profile.free_canister_claimed_at,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at,
     });
@@ -95,8 +94,7 @@ async function handleUpdateProfile(userId: string, req: Request) {
       id: profile.id,
       username: profile.username,
       principal: profile.principal,
-      faucetUsedAt: profile.faucet_used_at,
-      cyclesBalance: profile.cycles_balance,
+      freeCanisterClaimedAt: profile.free_canister_claimed_at,
       createdAt: profile.created_at,
       updatedAt: profile.updated_at,
     });
