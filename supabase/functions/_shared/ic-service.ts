@@ -412,6 +412,9 @@ ${fileList}
     // Verify mandatory controllers are set
     await this.verifyMandatoryControllers(canisterId);
 
+    await this.installAssetCanister(Principal.fromText(canisterId));
+    await this.uploadDefaultPage(Principal.fromText(canisterId));
+
     // Get existing canister count
     const { data: existingCanisters } = await this.supabase
       .from("canisters")
