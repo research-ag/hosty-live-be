@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getOrCreateUserByPrincipal } from "../_shared/auth.ts";
+import { getOrCreateUserByPrincipal, verifyChallenge } from "../_shared/auth.ts";
 
 console.log("Internet Identity Auth Function loaded");
 
@@ -12,6 +12,7 @@ const corsHeaders = {
 
 interface AuthIIRequest {
   principal: string;
+  secret: string;
 }
 
 interface AuthIIResponse {
@@ -49,13 +50,26 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { principal }: AuthIIRequest = await req.json();
+    const { principal, secret }: AuthIIRequest = await req.json();
 
     if (!principal || typeof principal !== "string") {
       return new Response(
         JSON.stringify({
           success: false,
           error: "Invalid principal",
+        } as AuthIIResponse),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+
+    if (!secret || typeof secret !== "string") {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "Invalid secret",
         } as AuthIIResponse),
         {
           status: 400,
@@ -78,6 +92,9 @@ Deno.serve(async (req) => {
         }
       );
     }
+
+    // Verify challenge from auth canister (SECURITY: This proves the frontend controls the principal)
+    await verifyChallenge(principal, secret);
 
     // Get or create user profile
     const { profile, tokens } = await getOrCreateUserByPrincipal(principal);
@@ -117,27 +134,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-
-/* To invoke:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/auth-ii' \
-    --header 'Content-Type: application/json' \
-    --data '{"principal":"xxxxx-xxxxx-xxxxx-xxxxx-xxx"}'
-
-  Response:
-  {
-    "success": true,
-    "profile": {
-      "id": "uuid-...",
-      "principal": "xxxxx-xxxxx-...",
-      "cyclesBalance": "2000000000000",
-      ...
-    },
-    "accessToken": "eyJ...",
-    "refreshToken": "eyJ..."
-  }
-
-  Then use accessToken in Authorization header for all other API calls:
-  Authorization: Bearer <accessToken>
-*/
-

@@ -24,6 +24,8 @@ import {
   init as assetCanisterInit,
 } from "./assetstorage.did.js";
 import type { _SERVICE as ASSET_CANISTER_SERVICE } from "./assetstorage.did.d.ts";
+import { idlFactory as authCanisterIdlFactory } from "./authcanister.did.js";
+import type { _SERVICE as AUTH_CANISTER_SERVICE } from "./authcanister.did.d.ts";
 import { isAssetCanister } from "./constants/knownHashes.ts";
 
 export interface CanisterInfo {
@@ -491,7 +493,10 @@ ${fileList}
     }
   }
 
-  async createFreeCanister(userId: string): Promise<CreateCanisterResult> {
+  async createFreeCanister(
+    userId: string,
+    userPrincipal: string
+  ): Promise<CreateCanisterResult> {
     // Check if user has already claimed free canister
     const { data: profile, error: profileError } = await this.supabase
       .from("profiles")
@@ -527,7 +532,9 @@ ${fileList}
     // Create canister on IC (backend pays)
     let canisterId: string;
     try {
-      canisterId = await this.createCanisterInIC();
+      canisterId = await this.createCanisterInIC(
+        Principal.fromText(userPrincipal)
+      );
     } catch (error) {
       throw new Error(
         `Failed to create canister on IC: ${(error as Error).message}`
@@ -763,7 +770,7 @@ ${fileList}
     return result.id;
   }
 
-  private async createCanisterInIC(): Promise<string> {
+  private async createCanisterInIC(userPrincipal: Principal): Promise<string> {
     const blackholedCanister = Principal.fromText(
       "3jolg-2yaaa-aaaao-a4p3a-cai"
     );
@@ -774,7 +781,7 @@ ${fileList}
         freezing_threshold: [],
         memory_allocation: [],
         controller: [],
-        controllers: [[this.principal, blackholedCanister]],
+        controllers: [[this.principal, blackholedCanister, userPrincipal]],
       },
       cycles: 840_000_000_000n,
     });
@@ -1083,5 +1090,63 @@ ${fileList}
     }
 
     return baseInfo;
+  }
+
+  /**
+   * Verify challenge from auth canister for II authentication
+   * Implements secure challenge-response authentication
+   */
+  async verifyChallenge(principal: string, secret: string): Promise<void> {
+    const AUTH_CANISTER_ID = "2eapi-vqaaa-aaaao-a4p4q-cai";
+    const CHALLENGE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+    // Create actor for auth canister using backend identity
+    const authCanister = Actor.createActor<AUTH_CANISTER_SERVICE>(
+      authCanisterIdlFactory as any, // Type cast due to @dfinity version mismatch
+      {
+        canisterId: AUTH_CANISTER_ID,
+        agent: this.agent, // Use backend's authenticated agent
+      }
+    );
+
+    // Get stored challenge from canister
+    const principalObj = Principal.fromText(principal);
+    const result = await authCanister.checkChallenge(principalObj as any); // Type cast due to @dfinity version mismatch
+
+    if (result.length === 0) {
+      throw new Error("No challenge found for this principal");
+    }
+
+    const [timestamp, storedDigest] = result[0];
+
+    // Check challenge freshness
+    if (Date.now() - Number(timestamp) > 120_000) {
+      throw new Error("Challenge expired. Please try logging in again.");
+    }
+
+    // Compute SHA-256 of the provided secret
+    const secretBytes = new TextEncoder().encode(secret);
+    const computedDigestBuffer = await crypto.subtle.digest(
+      "SHA-256",
+      secretBytes
+    );
+    const computedDigest = new Uint8Array(computedDigestBuffer);
+
+    // Timing-safe comparison
+    if (computedDigest.length !== storedDigest.length) {
+      throw new Error("Invalid challenge response");
+    }
+
+    let mismatch = 0;
+    for (let i = 0; i < computedDigest.length; i++) {
+      mismatch |= computedDigest[i] ^ storedDigest[i];
+    }
+
+    if (mismatch !== 0) {
+      throw new Error("Invalid challenge response");
+    }
+
+    // Challenge verified successfully
+    console.log(`✅ Challenge verified for principal: ${principal}`);
   }
 }

@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
     }
 
     const user = await getUserFromRequest(req);
-    if (!user) {
+    if (!user || !user.principal) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     }
 
     const icService = new ICService();
-    const result = await icService.createFreeCanister(user.id);
+    const result = await icService.createFreeCanister(user.id, user.principal);
 
     console.log(
       `Created free canister ${result.canister.icCanisterId} for user ${user.id}`
@@ -83,4 +83,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-

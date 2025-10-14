@@ -10,6 +10,7 @@ import {
   verify,
   getNumericDate,
 } from "https://deno.land/x/djwt@v3.0.1/mod.ts";
+import { ICService } from "./ic-service.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -141,6 +142,19 @@ interface ProfileData {
   created_at: string;
   updated_at: string;
   username?: string;
+}
+
+/**
+ * Verify challenge from auth canister
+ * Implements secure challenge-response authentication
+ * Uses ICService to access auth canister with backend identity
+ */
+export async function verifyChallenge(
+  principal: string,
+  secret: string
+): Promise<void> {
+  const icService = new ICService();
+  await icService.verifyChallenge(principal, secret);
 }
 
 /**
