@@ -395,3 +395,8 @@ entrypoint = "./functions/canister-add-domain/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/canister-claim-free/index.ts"
+
+[functions.stats]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/stats/index.ts"
