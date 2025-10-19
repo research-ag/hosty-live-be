@@ -1,28 +1,20 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { getUserFromRequest } from "../_shared/auth.ts";
 import { ICService } from "../_shared/ic-service.ts";
 
-interface CanisterDetailInfo {
-  id: string;
-  userId: string;
+interface PublicCanisterInfo {
   icCanisterId: string;
-  deleted: boolean;
-  deletedAt?: string;
   createdAt: string;
-  updatedAt: string;
   frontendUrl: string;
   cyclesBalance?: string;
-  cyclesBalanceRaw?: bigint;
-  wasmBinarySize?: string;
-  moduleHash?: string;
+  cyclesBalanceRaw?: string;
   controllers?: string[];
   isAssetCanister?: boolean;
   isSystemController?: boolean;
 }
 
-interface GetCanisterResponse {
+interface GetPublicCanisterResponse {
   success: boolean;
-  data?: CanisterDetailInfo;
+  data?: PublicCanisterInfo;
   error?: string;
 }
 
@@ -50,20 +42,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const user = await getUserFromRequest(req);
-    if (!user) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "Unauthorized",
-        } as GetCanisterResponse),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
     const url = new URL(req.url);
     const canisterId = url.searchParams.get("canisterId");
 
@@ -72,7 +50,7 @@ Deno.serve(async (req) => {
         JSON.stringify({
           success: false,
           error: "canisterId is required",
-        } as GetCanisterResponse),
+        } as GetPublicCanisterResponse),
         {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -81,14 +59,14 @@ Deno.serve(async (req) => {
     }
 
     const icService = new ICService();
-    const canister = await icService.getCanister(user.id, canisterId);
+    const canister = await icService.getCanisterByInternalId(canisterId);
 
     if (!canister) {
       return new Response(
         JSON.stringify({
           success: false,
           error: "Canister not found",
-        } as GetCanisterResponse),
+        } as GetPublicCanisterResponse),
         {
           status: 404,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -96,30 +74,23 @@ Deno.serve(async (req) => {
       );
     }
 
-    const canisterInfo: CanisterDetailInfo = {
-      id: canister.id,
-      userId: canister.userId,
+    const publicCanisterInfo: PublicCanisterInfo = {
       icCanisterId: canister.icCanisterId,
-      deleted: canister.deleted,
-      deletedAt: canister.deletedAt?.toISOString(),
       createdAt: canister.createdAt.toISOString(),
-      updatedAt: canister.updatedAt.toISOString(),
       frontendUrl:
         canister.frontendUrl || `https://${canister.icCanisterId}.icp0.io/`,
       cyclesBalance: canister.cyclesBalance,
       cyclesBalanceRaw: canister.cyclesBalanceRaw?.toString(),
-      wasmBinarySize: canister.wasmBinarySize,
-      moduleHash: canister.moduleHash,
       controllers: canister.controllers,
       isAssetCanister: canister.isAssetCanister,
       isSystemController: canister.isSystemController,
     };
 
-    console.log(`Retrieved canister ${canisterId} for user ${user.id}`);
+    console.log(`Retrieved public canister info for ${canisterId}`);
 
-    const response: GetCanisterResponse = {
+    const response: GetPublicCanisterResponse = {
       success: true,
-      data: canisterInfo,
+      data: publicCanisterInfo,
     };
 
     return new Response(JSON.stringify(response), {
@@ -127,9 +98,9 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("Error fetching canister:", error);
+    console.error("Error fetching public canister info:", error);
 
-    const response: GetCanisterResponse = {
+    const response: GetPublicCanisterResponse = {
       success: false,
       error: (error as Error)?.message || "Failed to fetch canister",
     };
@@ -140,3 +111,4 @@ Deno.serve(async (req) => {
     });
   }
 });
+

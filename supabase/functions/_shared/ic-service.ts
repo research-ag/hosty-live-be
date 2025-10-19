@@ -631,6 +631,27 @@ ${fileList}
     }
   }
 
+  async getCanisterByInternalId(
+    canisterId: string
+  ): Promise<CanisterInfo | null> {
+    const { data: canister, error } = await this.supabase
+      .from("canisters")
+      .select("*")
+      .eq("id", canisterId)
+      .eq("deleted", false)
+      .single();
+
+    if (error || !canister) return null;
+
+    try {
+      const icInfo = await this.getCanisterInfoFromIC(canister.ic_canister_id as string);
+      return this.mapToCanisterInfo(canister, icInfo);
+    } catch (error) {
+      console.log(`getCanisterInfoFromIC failed for ${canister.ic_canister_id as string}:`, error);
+      return this.mapToCanisterInfo(canister, null);
+    }
+  }
+
   async deleteCanister(userId: string, canisterId: string): Promise<void> {
     const { error } = await this.supabase
       .from("canisters")

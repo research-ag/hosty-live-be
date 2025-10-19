@@ -340,6 +340,12 @@ verify_jwt = false
 # import_map = "./functions/canister-get/deno.json"
 entrypoint = "./functions/canister-get/index.ts"
 
+[functions.canister-get-public]
+enabled = true
+verify_jwt = false
+# import_map = "./functions/canister-get-public/deno.json"
+entrypoint = "./functions/canister-get-public/index.ts"
+
 [functions.canister-delete]
 enabled = true
 verify_jwt = false
