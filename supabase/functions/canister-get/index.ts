@@ -11,13 +11,6 @@ interface CanisterDetailInfo {
   createdAt: string;
   updatedAt: string;
   frontendUrl: string;
-  cyclesBalance?: string;
-  cyclesBalanceRaw?: bigint;
-  wasmBinarySize?: string;
-  moduleHash?: string;
-  controllers?: string[];
-  isAssetCanister?: boolean;
-  isSystemController?: boolean;
 }
 
 interface GetCanisterResponse {
@@ -106,13 +99,6 @@ Deno.serve(async (req) => {
       updatedAt: canister.updatedAt.toISOString(),
       frontendUrl:
         canister.frontendUrl || `https://${canister.icCanisterId}.icp0.io/`,
-      cyclesBalance: canister.cyclesBalance,
-      cyclesBalanceRaw: canister.cyclesBalanceRaw?.toString(),
-      wasmBinarySize: canister.wasmBinarySize,
-      moduleHash: canister.moduleHash,
-      controllers: canister.controllers,
-      isAssetCanister: canister.isAssetCanister,
-      isSystemController: canister.isSystemController,
     };
 
     console.log(`Retrieved canister ${canisterId} for user ${user.id}`);

@@ -5,11 +5,6 @@ interface PublicCanisterInfo {
   icCanisterId: string;
   createdAt: string;
   frontendUrl: string;
-  cyclesBalance?: string;
-  cyclesBalanceRaw?: string;
-  controllers?: string[];
-  isAssetCanister?: boolean;
-  isSystemController?: boolean;
 }
 
 interface GetPublicCanisterResponse {
@@ -79,11 +74,6 @@ Deno.serve(async (req) => {
       createdAt: canister.createdAt.toISOString(),
       frontendUrl:
         canister.frontendUrl || `https://${canister.icCanisterId}.icp0.io/`,
-      cyclesBalance: canister.cyclesBalance,
-      cyclesBalanceRaw: canister.cyclesBalanceRaw?.toString(),
-      controllers: canister.controllers,
-      isAssetCanister: canister.isAssetCanister,
-      isSystemController: canister.isSystemController,
     };
 
     console.log(`Retrieved public canister info for ${canisterId}`);

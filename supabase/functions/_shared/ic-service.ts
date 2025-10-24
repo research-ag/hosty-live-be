@@ -36,14 +36,7 @@ export interface CanisterInfo {
   deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
-  cyclesBalance?: string;
-  cyclesBalanceRaw?: bigint;
-  wasmBinarySize?: string;
-  moduleHash?: string;
-  controllers?: string[];
   frontendUrl?: string;
-  isAssetCanister?: boolean;
-  isSystemController?: boolean;
 }
 
 export interface CreateCanisterResult {
@@ -417,6 +410,9 @@ ${fileList}
     await this.installAssetCanister(Principal.fromText(canisterId));
     await this.uploadDefaultPage(Principal.fromText(canisterId));
 
+    // Remove backend from controllers, keep only commit permissions
+    await this.removeBackendFromControllers(canisterId);
+
     // Get existing canister count
     const { data: existingCanisters } = await this.supabase
       .from("canisters")
@@ -487,6 +483,56 @@ ${fileList}
       }
       throw new Error(
         `Failed to verify canister controllers: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  private async removeBackendFromControllers(
+    canisterId: string
+  ): Promise<void> {
+    try {
+      const canisterPrincipal = Principal.fromText(canisterId);
+
+      // Get current controllers
+      const status = await this.managementCanister.canister_status.withOptions({
+        effectiveCanisterId: canisterPrincipal,
+      })({
+        canister_id: canisterPrincipal,
+      });
+
+      const currentControllers = status.settings.controllers;
+
+      // Remove backend principal from controllers
+      const newControllers = currentControllers.filter(
+        (controller) => controller.toText() !== this.principal.toText()
+      );
+
+      // Update canister settings to remove backend from controllers
+      await this.managementCanister.update_settings.withOptions({
+        effectiveCanisterId: canisterPrincipal,
+      })({
+        canister_id: canisterPrincipal,
+        settings: {
+          freezing_threshold: [],
+          controllers: [newControllers],
+          reserved_cycles_limit: [],
+          log_visibility: [],
+          wasm_memory_limit: [],
+          memory_allocation: [],
+          compute_allocation: [],
+          wasm_memory_threshold: [],
+        },
+        sender_canister_version: [],
+      });
+
+      console.log(
+        `✅ Removed backend from controllers for canister ${canisterId}`
+      );
+    } catch (error) {
+      throw new Error(
+        `Failed to remove backend from controllers: ${
           error instanceof Error ? error.message : "Unknown error"
         }`
       );
@@ -588,23 +634,8 @@ ${fileList}
 
     if (error) throw new Error(`Failed to fetch canisters: ${error.message}`);
 
-    return Promise.all(
-      (canisters || []).map(async (canister) => {
-        try {
-          const icInfo = await this.getCanisterInfoFromIC(
-            canister.ic_canister_id as string
-          );
-          return this.mapToCanisterInfo(canister, icInfo);
-        } catch (error) {
-          console.log(
-            `getCanisterInfoFromIC failed for ${
-              canister.ic_canister_id as string
-            }:`,
-            error
-          );
-          return this.mapToCanisterInfo(canister, null);
-        }
-      })
+    return (canisters || []).map((canister) =>
+      this.mapToCanisterInfo(canister)
     );
   }
 
@@ -622,13 +653,7 @@ ${fileList}
 
     if (error || !canister) return null;
 
-    try {
-      const icInfo = await this.getCanisterInfoFromIC(canisterId);
-      return this.mapToCanisterInfo(canister, icInfo);
-    } catch (error) {
-      console.log(`getCanisterInfoFromIC failed for ${canisterId}:`, error);
-      return this.mapToCanisterInfo(canister, null);
-    }
+    return this.mapToCanisterInfo(canister);
   }
 
   async getCanisterByInternalId(
@@ -643,13 +668,7 @@ ${fileList}
 
     if (error || !canister) return null;
 
-    try {
-      const icInfo = await this.getCanisterInfoFromIC(canister.ic_canister_id as string);
-      return this.mapToCanisterInfo(canister, icInfo);
-    } catch (error) {
-      console.log(`getCanisterInfoFromIC failed for ${canister.ic_canister_id as string}:`, error);
-      return this.mapToCanisterInfo(canister, null);
-    }
+    return this.mapToCanisterInfo(canister);
   }
 
   async deleteCanister(userId: string, canisterId: string): Promise<void> {
@@ -815,6 +834,9 @@ ${fileList}
     await this.installAssetCanister(canisterId);
     await this.uploadDefaultPage(canisterId);
 
+    // Remove backend from controllers, keep only commit permissions
+    await this.removeBackendFromControllers(canisterId.toText());
+
     return canisterId.toText();
   }
 
@@ -847,6 +869,23 @@ ${fileList}
         canister_id: canisterId,
         sender_canister_version: [],
       });
+
+      // Grant backend commit permissions so it can upload assets without being a controller
+      const assetCanister = this.getAssetCanister(canisterId);
+
+      await assetCanister.grant_permission({
+        permission: { Prepare: null },
+        to_principal: this.principal,
+      });
+
+      await assetCanister.grant_permission({
+        permission: { Commit: null },
+        to_principal: this.principal,
+      });
+
+      console.log(
+        `✅ Granted Prepare and Commit permissions to backend for canister ${canisterId.toText()}`
+      );
     } catch (error) {
       throw new Error(
         `Failed to install asset canister: ${
@@ -921,74 +960,6 @@ ${fileList}
       content_type: "text/html",
       content_encoding: "identity",
     });
-  }
-
-  private async getCanisterInfoFromIC(canisterId: string) {
-    try {
-      // Try management canister first (for full info including cycles)
-      const status = await this.managementCanister.canister_status.withOptions({
-        effectiveCanisterId: Principal.fromText(canisterId),
-      })({
-        canister_id: Principal.fromText(canisterId),
-      });
-
-      const moduleHash = status.module_hash[0]
-        ? this.arrayBufferToHex(status.module_hash[0])
-        : "Absent";
-
-      return {
-        cycles: status.cycles,
-        wasmBinarySize: status.memory_metrics.wasm_binary_size,
-        moduleHash,
-        controllers: status.settings.controllers.map((p: Principal) =>
-          p.toText()
-        ),
-      };
-    } catch (error) {
-      console.log(
-        `Management canister call failed, falling back to read state for ${canisterId}:`,
-        error
-      );
-
-      // Fallback to read state (no cycles info, but has moduleHash/controllers)
-      const state = await this.readCanisterState(canisterId);
-
-      return {
-        cycles: null,
-        wasmBinarySize: null,
-        moduleHash: state.moduleHash,
-        controllers: state.controllers,
-      };
-    }
-  }
-
-  private formatCycles(cycles: bigint): string {
-    const trillion = 1_000_000_000_000n;
-    if (cycles >= trillion) {
-      return `${(cycles / trillion).toString()}T`;
-    }
-    const billion = 1_000_000_000n;
-    if (cycles >= billion) {
-      return `${(cycles / billion).toString()}B`;
-    }
-    const million = 1_000_000n;
-    if (cycles >= million) {
-      return `${(cycles / million).toString()}M`;
-    }
-    return cycles.toString();
-  }
-
-  private formatBytes(bytes: bigint): string {
-    const kb = 1024n;
-    const mb = kb * 1024n;
-
-    if (bytes >= mb) {
-      return `${(bytes / mb).toString()} MB`;
-    }
-    if (bytes >= kb) {
-      return `${(bytes / kb).toString()} KB`;
-    }
-    return `${bytes.toString()} bytes`;
   }
 
   private arrayBufferToHex(buffer: Uint8Array | number[]): string {
@@ -1079,8 +1050,8 @@ ${fileList}
     return data;
   }
 
-  private mapToCanisterInfo(dbRecord: any, icInfo: any = null): CanisterInfo {
-    const baseInfo: CanisterInfo = {
+  private mapToCanisterInfo(dbRecord: any): CanisterInfo {
+    return {
       id: dbRecord.id,
       userId: dbRecord.user_id,
       icCanisterId: dbRecord.ic_canister_id,
@@ -1092,25 +1063,6 @@ ${fileList}
       updatedAt: new Date(dbRecord.updated_at),
       frontendUrl: `https://${dbRecord.ic_canister_id}.icp0.io/`,
     };
-
-    if (icInfo) {
-      if (icInfo.cycles !== null) {
-        baseInfo.cyclesBalance = this.formatCycles(icInfo.cycles);
-        baseInfo.cyclesBalanceRaw = icInfo.cycles;
-      }
-
-      if (icInfo.wasmBinarySize !== null) {
-        baseInfo.wasmBinarySize = this.formatBytes(icInfo.wasmBinarySize);
-      }
-
-      baseInfo.moduleHash = icInfo.moduleHash;
-      baseInfo.controllers = icInfo.controllers;
-      baseInfo.isAssetCanister = isAssetCanister(icInfo.moduleHash || "");
-      baseInfo.isSystemController =
-        icInfo.controllers?.includes(this.principal.toText()) || false;
-    }
-
-    return baseInfo;
   }
 
   /**
